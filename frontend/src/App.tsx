@@ -7,7 +7,7 @@ import Traceability from "./pages/Traceability";
 import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
 import NotFound from "./pages/NotFound";
-import { GenerationProvider } from "./context/GenerationContext";
+import { GenerationProvider } from "./context/GenerationProvider";
 import "./styles/variables.css";
 import "./styles/global.css";
 

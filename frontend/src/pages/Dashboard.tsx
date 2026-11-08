@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGeneration } from "../context/GenerationContext";
+import { useGeneration } from "../hooks/useGeneration";
 import { mockResults } from "../data/mockResults";
 import {
   FileText,

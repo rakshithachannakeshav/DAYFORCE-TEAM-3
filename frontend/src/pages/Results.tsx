@@ -2,7 +2,7 @@ import AcceptanceCriteria from "../components/results/AcceptanceCriteria";
 import TestScenarios from "../components/results/TestScenarios";
 import EdgeCases from "../components/results/EdgeCases";
 import { Download, FileJson, FileSpreadsheet } from "lucide-react";
-import { useGeneration } from "../context/GenerationContext";
+import { useGeneration } from "../hooks/useGeneration";
 import { exportCSV, exportJSON } from "../utils/export";
 
 function Results() {
