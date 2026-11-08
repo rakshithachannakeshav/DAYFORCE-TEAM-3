@@ -1,4 +1,4 @@
-"""Product Requirements-to-Test Assistant - LLM generation pipeline (Person 1)."""
+"""Product Requirements-to-Test Assistant - LLM generation pipeline."""
 
 from .config import LLMSettings, get_settings
 from .errors import (

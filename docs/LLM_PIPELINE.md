@@ -1,4 +1,4 @@
-# LLM Generation Pipeline (Person 1 – LLM & Pipeline)
+# LLM Generation Pipeline
 
 This module turns **one structured product requirement** into acceptance criteria,
 positive/negative/boundary/edge-case test scenarios, ambiguity reports, a
@@ -328,7 +328,7 @@ Two layers, merged and de-duplicated (`merge_ambiguities`), renumbered `AMB-1…
 ## 6. Output schema
 
 ### Request – `POST /api/llm/generate`
-The dataset format of `examples/sample_requirements.json` is accepted as well: `id` is read as
+The dataset format of `eval/sample_requirements.json` is accepted as well: `id` is read as
 `requirement_id`, `rules` as `business_rules`; other extra fields (e.g. `intentionally_ambiguous`)
 are ignored. Responses always use the field names below.
 
@@ -418,7 +418,6 @@ ollama serve                   # leave running in its own terminal (not needed i
 ollama pull qwen2.5:3b
 
 # one-time: Python environment
-cd "/Users/shachitas/Product Requirements-to-Test Assistant"
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -428,9 +427,9 @@ python -m llm_pipeline examples/password_reset.json -o output.json
 python -m llm_pipeline examples/ambiguous_search.json
 
 # Batch: a JSON LIST of requirements (the team dataset) -> results/<id>.json + results/summary.json
-python -m llm_pipeline examples/sample_requirements.json --out-dir results
-python -m llm_pipeline examples/sample_requirements.json --only REQ-TC-002,REQ-AMB-010
-python -m llm_pipeline examples/sample_requirements.json --show-prompt --only REQ-SW-007
+python -m llm_pipeline eval/sample_requirements.json --out-dir results
+python -m llm_pipeline eval/sample_requirements.json --only REQ-TC-002,REQ-AMB-010
+python -m llm_pipeline eval/sample_requirements.json --show-prompt --only REQ-SW-007
 
 # API demo
 uvicorn llm_pipeline.server:app --reload --port 8001
@@ -451,7 +450,7 @@ other apps on an 8 GB machine, and raise `LLM_TIMEOUT_SECONDS`). Not benchmarked
 
 ```bash
 source .venv/bin/activate
-pytest -v                       # 168 tests, all with mocked LLM responses (no Ollama needed)
+pytest -v                       # 254 tests, all with mocked LLM responses (no Ollama needed)
 pytest tests/test_pipeline.py -v -k "vague or boundary or coverage"   # a focused subset for a demo
 ```
 
@@ -469,7 +468,7 @@ pytest tests/test_pipeline.py -v -k "vague or boundary or coverage"   # a focuse
 | 10. Coverage calculation | `test_coverage_distinguishes_generated_from_validated`, `test_coverage_is_never_100_when_criteria_are_untested`, `test_good_answer_is_fully_validated_in_one_call` |
 | Robustness | invalid / fenced / empty / truncated JSON, schema errors, missing ACs, retry exhaustion, timeouts, Ollama down, enum normalisation (`tests/test_pipeline.py`, bottom) |
 | Components | JSON parsing, Ollama client over mocked HTTP, FastAPI routes (`tests/test_components.py`) |
-| Team dataset (`examples/sample_requirements.json`) | `tests/test_sample_dataset.py` – `id`/`rules` format, ambiguity detection vs. the `intentionally_ambiguous` labels (12/12), exact boundary values for every limit, vague rules never validated, batch CLI |
+| Team dataset (`eval/sample_requirements.json`) | `tests/test_sample_dataset.py` – `id`/`rules` format, ambiguity detection vs. the `intentionally_ambiguous` labels (12/12), exact boundary values for every limit, vague rules never validated, batch CLI |
 | Regressions from real `qwen2.5:3b` runs | `tests/test_regressions.py` – incl. **replays** of real model answers in `tests/data/` |
 | Internal consistency | every pipeline test runs `conftest.assert_consistent`: traceability ↔ tests ↔ coverage ↔ gaps ↔ warnings |
 
