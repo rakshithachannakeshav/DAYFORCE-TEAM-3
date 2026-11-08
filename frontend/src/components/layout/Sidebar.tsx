@@ -2,8 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   FileText,
-  GitBranch,
-  Settings
+  GitBranch
 } from "lucide-react";
 
 function Sidebar() {
@@ -26,13 +25,6 @@ function Sidebar() {
         <NavLink to="/traceability" className="sidebar-link">
           <GitBranch size={19} />
           <span>Traceability</span>
-        </NavLink>
-      </div>
-
-      <div className="sidebar-bottom">
-        <NavLink to="/settings" className="sidebar-link">
-          <Settings size={19} />
-          <span>Settings</span>
         </NavLink>
       </div>
 

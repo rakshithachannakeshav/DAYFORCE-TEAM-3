@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import ErrorMessage from "../components/common/ErrorMessage";
+import Loader from "../components/common/Loader";
 import { useGeneration } from "../hooks/useGeneration";
-import { mockResults } from "../data/mockResults";
+import { GenerationError, generateTests } from "../services/api";
 import {
   FileText,
   Sparkles,
@@ -9,44 +12,69 @@ import {
   GitBranch
 } from "lucide-react";
 
+const MAX_LENGTH = 2000;
+
+// Same minimums as llm_pipeline/validation.py, so short input fails without a request.
+const MIN_CHARS = 15;
+const MIN_WORDS = 4;
+
 function Dashboard() {
   const [requirement, setRequirement] = useState("");
   const [error, setError] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const pendingRequest = useRef<AbortController | null>(null);
   const navigate = useNavigate();
-  const {
-  setRequirement: saveRequirement,
-  setResults
-} = useGeneration();
+  const { setRequirement: saveRequirement, setResults } = useGeneration();
 
-  const MAX_LENGTH = 2000;
+  // Leaving the page cancels the wait, so a late response cannot redirect the user.
+  useEffect(() => () => pendingRequest.current?.abort(), []);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setError("");
-    setSubmitted(false);
+    setErrorDetails([]);
 
-    if (!requirement.trim()) {
+    const text = requirement.trim();
+
+    if (!text) {
       setError("Please enter a product requirement.");
       return;
     }
 
-    if (requirement.trim().length < 10) {
+    if (
+      text.length < MIN_CHARS ||
+      (text.match(/[A-Za-z]{2,}/g) ?? []).length < MIN_WORDS
+    ) {
       setError("Please provide a more detailed requirement.");
       return;
     }
 
-    setSubmitted(true);
-    saveRequirement(requirement.trim());
-    setResults(mockResults);
-    navigate("/results");
-    console.log("Requirement submitted:", requirement);
+    const controller = new AbortController();
+    pendingRequest.current = controller;
+
+    setLoading(true);
+    setResults(null);
+    saveRequirement(text);
+
+    try {
+      setResults(await generateTests(text, controller.signal));
+      navigate("/results");
+    } catch (err) {
+      if (axios.isCancel(err)) {
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Something went wrong while generating tests.");
+      setErrorDetails(err instanceof GenerationError ? err.details : []);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (value: string) => {
     if (value.length <= MAX_LENGTH) {
       setRequirement(value);
       setError("");
-      setSubmitted(false);
+      setErrorDetails([]);
     }
   };
 
@@ -98,27 +126,23 @@ function Dashboard() {
         </div>
 
         {error && (
-          <p className="error-message">
-            {error}
-          </p>
+          <ErrorMessage message={error} details={errorDetails} />
         )}
 
-        {submitted && (
-          <p className="success-message">
-            Requirement captured successfully! Backend integration is the next step.
-          </p>
+        {loading && (
+          <Loader message="Generating tests. A local model can take several minutes." />
         )}
 
         <div className="card-footer">
 
           <span>
-            Be as specific as possible for better results.
+            Be as specific as possible. Put each business rule on its own line starting with "- ".
           </span>
 
           <button
             className="generate-button"
             onClick={handleGenerate}
-            disabled={!requirement.trim()}
+            disabled={!requirement.trim() || loading}
           >
             <Sparkles size={18} />
 
@@ -149,7 +173,7 @@ function Dashboard() {
           <h3>Test Scenarios</h3>
 
           <p>
-            Generate positive and negative testing scenarios.
+            Generate positive, negative, boundary and edge case scenarios.
           </p>
         </div>
 

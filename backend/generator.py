@@ -2,7 +2,7 @@
 
 Provides test suite generation and contract enforcement. Includes a baseline
 generator so backend, frontend, and CI workflows can run deterministically
-before or alongside Person 1's Ollama LLM integration.
+before or alongside the Ollama LLM integration.
 """
 from schemas import (
     AcceptanceCriterion,

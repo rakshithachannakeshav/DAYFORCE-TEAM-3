@@ -1,26 +1,24 @@
 
 import type {
-  AcceptanceCriterion,
-  TestScenario
+  CoverageView,
+  CriterionStatus,
+  TraceabilityRow
 } from "../../types";
 
 interface Props {
-  criteria: AcceptanceCriterion[];
-  scenarios: TestScenario[];
+  rows: TraceabilityRow[];
+  coverage: CoverageView;
 }
 
-function TraceabilityMatrix({ criteria, scenarios }: Props) {
+const STATUS_LABELS: Record<CriterionStatus, string> = {
+  validated: "Validated",
+  partial: "Partial",
+  untested: "Not Covered",
+  needs_clarification: "Needs Clarification",
+  assumption: "Assumption"
+};
 
-  const coveredCriteria = criteria.filter((criterion) =>
-    scenarios.some(
-      (scenario) => scenario.criterion_id === criterion.id
-    )
-  );
-
-  const coverage = criteria.length > 0
-    ? Math.round((coveredCriteria.length / criteria.length) * 100)
-    : 0;
-
+function TraceabilityMatrix({ rows, coverage }: Props) {
   return (
     <section className="result-card">
 
@@ -28,16 +26,22 @@ function TraceabilityMatrix({ criteria, scenarios }: Props) {
 
       <div className="coverage-section">
         <div className="coverage-header">
-          <span>Acceptance Criteria Coverage</span>
-          <strong>{coverage}%</strong>
+          <span>Validated Coverage</span>
+          <strong>{coverage.validated_percent}%</strong>
         </div>
 
         <div className="coverage-bar">
           <div
             className="coverage-fill"
-            style={{ width: `${coverage}%` }}
+            style={{ width: `${coverage.validated_percent}%` }}
           />
         </div>
+
+        <p className="coverage-note">
+          {coverage.generated_percent}% of criteria have at least one test.
+          Validated criteria also have the required positive, negative and
+          boundary tests and no unresolved ambiguity.
+        </p>
       </div>
 
       <div className="table-wrapper">
@@ -52,55 +56,57 @@ function TraceabilityMatrix({ criteria, scenarios }: Props) {
           </thead>
 
           <tbody>
-            {criteria.map((criterion) => {
+            {rows.map((row) => (
+              <tr key={row.criterion_id}>
 
-              const mappedTests = scenarios.filter(
-                (scenario) =>
-                  scenario.criterion_id === criterion.id
-              );
+                <td>
+                  <strong>{row.criterion_id}</strong>
+                  <p>{row.criterion}</p>
+                </td>
 
-              return (
-                <tr key={criterion.id}>
+                <td>
+                  {row.test_case_ids.length > 0
+                    ? row.test_case_ids.map((id) => (
+                        <span
+                          className="mapped-test"
+                          key={id}
+                        >
+                          {id}
+                        </span>
+                      ))
+                    : "No tests mapped"}
+                </td>
 
-                  <td>
-                    <strong>{criterion.id}</strong>
-                    <p>{criterion.description}</p>
-                  </td>
+                <td>
+                  <span className={`coverage-status ${row.status}`}>
+                    {STATUS_LABELS[row.status]}
+                  </span>
 
-                  <td>
-                    {mappedTests.length > 0
-                      ? mappedTests.map((test) => (
-                          <span
-                            className="mapped-test"
-                            key={test.id}
-                          >
-                            {test.id}
-                          </span>
-                        ))
-                      : "No tests mapped"}
-                  </td>
+                  {row.missing.length > 0 && (
+                    <p className="coverage-note">
+                      Missing: {row.missing.join(", ")}
+                    </p>
+                  )}
+                </td>
 
-                  <td>
-                    <span
-                      className={`coverage-status ${
-                        mappedTests.length > 0
-                          ? "covered"
-                          : "uncovered"
-                      }`}
-                    >
-                      {mappedTests.length > 0
-                        ? "Covered"
-                        : "Not Covered"}
-                    </span>
-                  </td>
-
-                </tr>
-              );
-            })}
+              </tr>
+            ))}
           </tbody>
 
         </table>
       </div>
+
+      {coverage.gaps.length > 0 && (
+        <div className="coverage-gaps">
+          <h3>Remaining Gaps</h3>
+
+          <ul className="edge-case-list">
+            {coverage.gaps.map((gap) => (
+              <li key={gap}>{gap}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
     </section>
   );

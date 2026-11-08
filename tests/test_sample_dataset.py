@@ -1,4 +1,4 @@
-"""Tests on the team's requirement dataset (examples/sample_requirements.json).
+"""Tests on the team's requirement dataset (eval/sample_requirements.json).
 
 All deterministic (no LLM): input format, ambiguity detection against the dataset's own
 ``intentionally_ambiguous`` labels, rule clauses, and boundary values for every stated limit.
@@ -19,7 +19,7 @@ from llm_pipeline.coverage import Context
 from llm_pipeline.schemas import RequirementInput
 from llm_pipeline.validation import validate_requirement
 
-DATASET = json.loads((Path(__file__).parents[1] / "examples" / "sample_requirements.json").read_text())
+DATASET = json.loads((Path(__file__).parents[1] / "eval" / "sample_requirements.json").read_text(encoding="utf-8"))
 BY_ID = {r["id"]: r for r in DATASET}
 
 

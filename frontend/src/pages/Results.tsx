@@ -8,16 +8,10 @@ import { exportCSV, exportJSON } from "../utils/export";
 function Results() {
   const { requirement, results } = useGeneration();
 
-if (!results) {
-  return <p>No results available. Please submit a requirement first.</p>;
-}
-  const handleExportCSV = () => {
-  exportCSV(results);
-};
+  if (!results) {
+    return <p>No results available. Please submit a requirement first.</p>;
+  }
 
-const handleExportJSON = () => {
-  exportJSON(results);
-};
   return (
     <div className="dashboard">
 
@@ -34,29 +28,35 @@ const handleExportJSON = () => {
       </div>
 
       <div className="export-actions">
-    <div className="requirement-preview">
-  <h3>Submitted Requirement</h3>
-  <p>{requirement}</p>
-</div>
+        <div className="requirement-preview">
+          <h3>Submitted Requirement</h3>
+          <p>{requirement}</p>
+        </div>
 
-  <button
-    className="export-button"
-    onClick={handleExportCSV}
-  >
-    <FileSpreadsheet size={17} />
-    Export CSV
-  </button>
+        <button
+          className="export-button"
+          onClick={() => exportCSV(results)}
+        >
+          <FileSpreadsheet size={17} />
+          Export CSV
+        </button>
 
-  <button
-    className="export-button primary-export"
-    onClick={handleExportJSON}
-  >
-    <FileJson size={17} />
-    Export JSON
-    <Download size={16} />
-  </button>
+        <button
+          className="export-button primary-export"
+          onClick={() => exportJSON(results)}
+        >
+          <FileJson size={17} />
+          Export JSON
+          <Download size={16} />
+        </button>
+      </div>
 
-</div>
+      {results.status === "needs_clarification" && (
+        <p className="clarification-banner" role="status">
+          This requirement needs clarification. Criteria blocked by an ambiguity
+          are not counted as validated until the questions below are answered.
+        </p>
+      )}
 
       <div className="results-summary">
         <div className="summary-card">
@@ -87,22 +87,32 @@ const handleExportJSON = () => {
         edgeCases={results.edge_cases}
       />
 
-      {(results.ambiguities.length > 0 ||
-        results.clarification_questions.length > 0) && (
+      {results.ambiguities.length > 0 && (
         <section className="result-card">
           <h2>Ambiguities & Clarifications</h2>
 
-          {results.ambiguities.map((item, index) => (
-            <p className="result-text" key={`a-${index}`}>
-              <strong>Ambiguity:</strong> {item}
-            </p>
+          {results.ambiguities.map((item) => (
+            <div className="result-text" key={item.id}>
+              <p>
+                <strong>{item.id} ({item.severity}):</strong> {item.text}: {item.issue}
+              </p>
+              <p>
+                <strong>Question:</strong> {item.question}
+              </p>
+            </div>
           ))}
+        </section>
+      )}
 
-          {results.clarification_questions.map((item, index) => (
-            <p className="result-text" key={`q-${index}`}>
-              <strong>Question:</strong> {item}
-            </p>
-          ))}
+      {results.assumptions.length > 0 && (
+        <section className="result-card">
+          <h2>Assumptions</h2>
+
+          <ul className="edge-case-list">
+            {results.assumptions.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
         </section>
       )}
 

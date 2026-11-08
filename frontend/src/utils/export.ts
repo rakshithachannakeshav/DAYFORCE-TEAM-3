@@ -29,12 +29,48 @@ function escapeCSV(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
+// The complete API response, so the export loses nothing the UI does not show
+export function buildJSON(data: GenerationResponse): string {
+  return JSON.stringify(data.raw, null, 2);
+}
+
+export function buildCSV(data: GenerationResponse): string {
+  const headers = [
+    "Test Case ID",
+    "Requirement ID",
+    "Acceptance Criteria ID",
+    "Scenario",
+    "Steps",
+    "Test Data",
+    "Expected Result",
+    "Type",
+    "Priority"
+  ];
+
+  const rows = data.test_scenarios.map((scenario) => [
+    scenario.id,
+    data.requirement_id,
+    scenario.criterion_id,
+    scenario.scenario,
+    scenario.steps.join(" | "),
+    scenario.test_data.join(" | "),
+    scenario.expected_result,
+    scenario.type,
+    scenario.priority
+  ]);
+
+  return [
+    headers.map(escapeCSV).join(","),
+    ...rows.map((row) =>
+      row.map(escapeCSV).join(",")
+    )
+  ].join("\r\n");
+}
+
 // Export complete results as JSON
 export function exportJSON(data: GenerationResponse) {
-  const json = JSON.stringify(data, null, 2);
-
   downloadFile(
-    json,
+    buildJSON(data),
     "generated-test-results.json",
     "application/json"
   );
@@ -42,33 +78,9 @@ export function exportJSON(data: GenerationResponse) {
 
 // Export test scenarios as CSV
 export function exportCSV(data: GenerationResponse) {
-
-  const headers = [
-    "Test Case ID",
-    "Acceptance Criteria ID",
-    "Scenario",
-    "Expected Result",
-    "Type"
-  ];
-
-  const rows = data.test_scenarios.map((scenario) => [
-    scenario.id,
-    scenario.criterion_id,
-    scenario.scenario,
-    scenario.expected_result,
-    scenario.type
-  ]);
-
-  const csvContent = [
-    headers.map(escapeCSV).join(","),
-    ...rows.map((row) =>
-      row.map(escapeCSV).join(",")
-    )
-  ].join("\r\n");
-
   // BOM helps spreadsheet applications recognize UTF-8.
   downloadFile(
-    "\uFEFF" + csvContent,
+    "﻿" + buildCSV(data),
     "generated-test-scenarios.csv",
     "text/csv;charset=utf-8;"
   );
