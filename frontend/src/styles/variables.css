@@ -1,0 +1,19 @@
+:root {
+  font-family: Inter, system-ui, Arial, sans-serif;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+
+  --background: #f8fafc;
+  --surface: #ffffff;
+
+  --text-primary: #172033;
+  --text-secondary: #64748b;
+
+  --border: #e2e8f0;
+
+  --sidebar-width: 245px;
+  --navbar-height: 68px;
+
+  --radius: 12px;
+}
