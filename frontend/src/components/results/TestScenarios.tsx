@@ -30,13 +30,22 @@ function TestScenarios({ scenarios }: Props) {
                 <tr key={scenario.id}>
                   <td>{scenario.id}</td>
                   <td>{scenario.criterion_id}</td>
-                  <td>{scenario.scenario}</td>
+                  <td>
+                    {scenario.scenario}
+                    {scenario.test_data.length > 0 && (
+                      <ul className="test-data-list">
+                        {scenario.test_data.map((value) => (
+                          <li key={value}>{value}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                   <td>{scenario.expected_result}</td>
                   <td>
                     <span
                       className={`type-badge ${scenario.type}`}
                     >
-                      {scenario.type}
+                      {scenario.type.replace("_", " ")}
                     </span>
                   </td>
                 </tr>

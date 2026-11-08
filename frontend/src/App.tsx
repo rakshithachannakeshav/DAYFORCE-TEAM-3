@@ -14,28 +14,24 @@ import "./styles/global.css";
 function App() {
   return (
     <BrowserRouter>
-    <GenerationProvider>
+      <GenerationProvider>
         <div className="app-container">
-          {<div className="app-container">
-        <Navbar />
+          <Navbar />
 
-        <div className="app-body">
-          <Sidebar />
+          <div className="app-body">
+            <Sidebar />
 
-          <main className="main-content">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/results" element={<Results />} />
-              <Route path="/traceability" element={<Traceability />} />
-              <Route path="*" element={<NotFound />} />
-              
-            </Routes>
-          </main>
-        </div>
-      </div>}
+            <main className="main-content">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/results" element={<Results />} />
+                <Route path="/traceability" element={<Traceability />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
         </div>
       </GenerationProvider>
-      
     </BrowserRouter>
   );
 }

@@ -17,7 +17,12 @@ function AcceptanceCriteria({ criteria }: Props) {
           {criteria.map((criterion) => (
             <div className="criterion-item" key={criterion.id}>
               <span className="item-id">{criterion.id}</span>
-              <p>{criterion.description}</p>
+              <p>
+                {criterion.description}
+                {criterion.source === "assumption" && (
+                  <span className="assumption-tag"> (assumption)</span>
+                )}
+              </p>
             </div>
           ))}
         </div>

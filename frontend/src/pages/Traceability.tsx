@@ -1,8 +1,11 @@
 
-import { mockResults } from "../data/mockResults";
+import { Link } from "react-router-dom";
 import TraceabilityMatrix from "../components/traceability/TraceabilityMatrix";
+import { useGeneration } from "../hooks/useGeneration";
 
 function Traceability() {
+  const { results } = useGeneration();
+
   return (
     <div className="dashboard">
 
@@ -21,10 +24,18 @@ function Traceability() {
 
       </div>
 
-      <TraceabilityMatrix
-        criteria={mockResults.acceptance_criteria}
-        scenarios={mockResults.test_scenarios}
-      />
+      {results ? (
+        <TraceabilityMatrix
+          rows={results.traceability}
+          coverage={results.coverage}
+        />
+      ) : (
+        <section className="result-card">
+          <p>
+            No results yet. <Link className="text-link" to="/">Submit a requirement</Link> first.
+          </p>
+        </section>
+      )}
 
     </div>
   );

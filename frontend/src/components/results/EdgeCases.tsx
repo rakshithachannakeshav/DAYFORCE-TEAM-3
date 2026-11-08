@@ -1,6 +1,8 @@
 
+import type { EdgeCase } from "../../types";
+
 interface Props {
-  edgeCases: string[];
+  edgeCases: EdgeCase[];
 }
 
 function EdgeCases({ edgeCases }: Props) {
@@ -12,8 +14,14 @@ function EdgeCases({ edgeCases }: Props) {
         <p>No edge cases available.</p>
       ) : (
         <ul className="edge-case-list">
-          {edgeCases.map((edgeCase, index) => (
-            <li key={index}>{edgeCase}</li>
+          {edgeCases.map((edgeCase) => (
+            <li key={edgeCase.id}>
+              <span className="item-id">{edgeCase.id}</span>{" "}
+              <span className={`type-badge ${edgeCase.type}`}>
+                {edgeCase.type.replace("_", " ")}
+              </span>{" "}
+              {edgeCase.description}: {edgeCase.expected_result}
+            </li>
           ))}
         </ul>
       )}
