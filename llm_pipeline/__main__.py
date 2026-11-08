@@ -4,11 +4,11 @@
     python -m llm_pipeline --text "Users must be able to reset their password via email."
     python -m llm_pipeline examples/password_reset.json --show-prompt
 
-Batch mode (the file holds a JSON LIST of requirements, e.g. examples/sample_requirements.json):
+Batch mode (the file holds a JSON LIST of requirements, e.g. eval/sample_requirements.json):
 
-    python -m llm_pipeline examples/sample_requirements.json --out-dir results
-    python -m llm_pipeline examples/sample_requirements.json --only REQ-TC-002,REQ-AMB-010
-    python -m llm_pipeline examples/sample_requirements.json --show-prompt --only REQ-TC-002
+    python -m llm_pipeline eval/sample_requirements.json --out-dir results
+    python -m llm_pipeline eval/sample_requirements.json --only REQ-TC-002,REQ-AMB-010
+    python -m llm_pipeline eval/sample_requirements.json --show-prompt --only REQ-TC-002
 
 Each result goes to <out-dir>/<requirement id>.json, plus <out-dir>/summary.json. If the
 dataset carries an "intentionally_ambiguous" label, the summary checks needs_clarification

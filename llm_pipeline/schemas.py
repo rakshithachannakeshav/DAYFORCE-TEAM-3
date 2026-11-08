@@ -96,7 +96,7 @@ class RequirementInput(_Lenient):
     """A structured product requirement, as sent by the backend."""
 
     # Accepts both this contract's names and the dataset format used in
-    # examples/sample_requirements.json ("id", "rules"). Output always uses the names below.
+    # eval/sample_requirements.json ("id", "rules"). Output always uses the names below.
     requirement_id: str | None = Field(
         default=None,
         max_length=64,
