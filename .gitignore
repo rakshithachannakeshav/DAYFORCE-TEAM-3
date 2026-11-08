@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 output*.json
-results/
+/results/
 __pycache__/
 *.pyc
 .venv/
