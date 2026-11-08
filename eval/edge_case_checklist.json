@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "boundary_values",
+      "description": "Values exactly at and just outside a stated numeric limit",
+      "items": [
+        {
+          "id": "bv_at_limit",
+          "description": "A value exactly at a stated limit is tested",
+          "applies_if": "\\d",
+          "patterns": [
+            "\\bexactly\\s+(at\\s+)?\\d+",
+            "\\bat the (limit|cap|threshold|maximum|minimum)\\b",
+            "->\\s*(exactly at|at the cap)"
+          ]
+        },
+        {
+          "id": "bv_outside_limit",
+          "description": "A value just outside a stated limit is tested",
+          "applies_if": "\\d",
+          "patterns": [
+            "\\bjust\\s+(below|above|under|over|outside|past|before|after)\\b",
+            "\\bone\\s+(more|less|over|under|above|below)\\b",
+            "\\boff[- ]by[- ]one\\b",
+            "->\\s*(rejected|does not match|after the limit|never reached)",
+            "\\b(below|above|exceed\\w*) the (limit|cap|threshold|maximum|minimum)\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "time_zones_dst",
+      "description": "Different time zones and daylight saving changes",
+      "items": [
+        {
+          "id": "tz_different_zone",
+          "description": "Users or data in different time zones",
+          "applies_if": "\\b(time|date|dates|hours?|shifts?|clock|midnight|workday|week|month|days?)\\b",
+          "patterns": [
+            "\\bUTC\\b",
+            "\\bGMT\\b",
+            "\\b(different|across|multiple|another) time ?zones?\\b",
+            "\\btime ?zone (change|difference|offset)s?\\b"
+          ]
+        },
+        {
+          "id": "tz_dst",
+          "description": "A daylight saving change during the period under test",
+          "applies_if": "\\b(time|date|dates|hours?|shifts?|clock|midnight|workday|week|month|days?)\\b",
+          "patterns": [
+            "\\bDST\\b",
+            "\\bdaylight[- ]saving",
+            "\\bclocks? (change|changes|go|goes|move|moves|forward|back)\\b",
+            "\\bspring forward\\b",
+            "\\bfall back\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "empty_null_input",
+      "description": "Empty, null, missing or zero input",
+      "items": [
+        {
+          "id": "null_missing_value",
+          "description": "A required value is empty, null or missing",
+          "applies_if": null,
+          "patterns": [
+            "\\b(empty|blank)\\b",
+            "\\bwhitespace\\b",
+            "\\bnull\\s+(value|input|field|date|time|reason)\\b",
+            "\\b(missing|omitted|no)\\s+(value|input|field|date|reason|start date|end date)\\b",
+            "\\bwithout (a|an|any) (value|reason|date)\\b"
+          ]
+        },
+        {
+          "id": "null_zero_value",
+          "description": "A numeric input of zero",
+          "applies_if": "\\b(hours?|days?|balance|characters?|years?)\\b",
+          "patterns": [
+            "\\b(zero|0)\\s+(scheduled |working |available |worked )?(hours?|days?|balance|characters?|years?)\\b",
+            "\\b(balance|hours|days) of (zero|0)\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "duplicate_submissions",
+      "description": "The same action submitted more than once",
+      "items": [
+        {
+          "id": "dup_repeated_action",
+          "description": "A repeated submission or an action on an already processed item",
+          "applies_if": "\\b(submit\\w*|requests?|approv\\w*|reject\\w*|alerts?|assign\\w*|swap\\w*|sent|send|edit\\w*)\\b",
+          "patterns": [
+            "\\bduplicate\\w*\\b",
+            "\\b(submit\\w*|send\\w*|sent|click\\w*|request\\w*|approv\\w*|reject\\w*)\\s+(\\w+\\s+){0,3}(twice|again|a second time|two times|multiple times|more than once)\\b",
+            "\\bdouble[- ](submit|click)\\w*",
+            "\\balready (approved|submitted|rejected|processed|locked|sent)\\b",
+            "\\bidempoten\\w*"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "permission_role_violations",
+      "description": "An actor without the required role or relationship attempts the action",
+      "items": [
+        {
+          "id": "perm_unauthorized_actor",
+          "description": "The wrong actor is refused",
+          "applies_if": "\\b(managers?|admins?|only|permissions?|approv\\w*|roles?|employees?)\\b",
+          "patterns": [
+            "\\bunauthori[sz]ed\\b",
+            "\\bforbidden\\b",
+            "\\b403\\b",
+            "\\b(permission|access) denied\\b",
+            "\\bnot permitted\\b",
+            "\\b(without|lacks?|lacking|insufficient) (the )?(permission|rights|privileges)\\b",
+            "\\bnon-?(manager|admin)\\b",
+            "\\b(another|different|other) (manager|employee|user)('s)?\\b",
+            "\\bnot (the|their) (direct )?(manager|report)\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "concurrency",
+      "description": "Two actors or requests act on the same data at once",
+      "items": [
+        {
+          "id": "conc_simultaneous",
+          "description": "Simultaneous updates or a race condition",
+          "applies_if": "\\b(approv\\w*|assign\\w*|swap\\w*|balance|submit\\w*|requests?|edit\\w*|lock\\w*|alerts?)\\b",
+          "patterns": [
+            "\\bconcurren\\w*",
+            "\\bsimultaneous\\w*",
+            "\\bat the same (time|moment)\\b",
+            "\\brace condition\\b",
+            "\\bin parallel\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "date_time_rollover",
+      "description": "Behaviour across a day, week, month or year boundary",
+      "items": [
+        {
+          "id": "roll_midnight",
+          "description": "An event crossing midnight or a day boundary",
+          "applies_if": "\\b(time|hours?|shifts?|clock|workday|days?)\\b",
+          "patterns": [
+            "\\bmidnight\\b",
+            "\\bovernight\\b",
+            "\\b(next|previous) day\\b",
+            "\\bday boundary\\b",
+            "\\b(cross\\w*|span\\w*) (two |multiple |a |the )?(days?|workdays?)\\b"
+          ]
+        },
+        {
+          "id": "roll_period_end",
+          "description": "A month end, year end, leap day or pay period change",
+          "applies_if": "\\b(week|month|year|years|dates?|period|payroll|leave)\\b",
+          "patterns": [
+            "\\b(month|year|week|period)[- ](end|boundary|rollover)\\b",
+            "\\b(end|last day|first day|start) of (the |a )?(month|year|week|pay period)\\b",
+            "\\bleap (year|day)\\b",
+            "\\bfebruary 29\\b",
+            "\\bdecember 31\\b",
+            "\\bjanuary 1\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rounding",
+      "description": "Fractional values and rounding rules",
+      "items": [
+        {
+          "id": "round_fractional",
+          "description": "A fractional input or an explicit rounding expectation",
+          "applies_if": "\\b(calculat\\w*|accru\\w*|prorat\\w*|overtime|balance|hours?|deduct\\w*|rate)\\b",
+          "patterns": [
+            "\\bround\\w*\\b",
+            "\\bfraction\\w*\\b",
+            "\\bdecimal\\w*\\b",
+            "\\b\\d+\\.\\d{2,}\\b",
+            "\\b\\d+\\.\\d+\\s*(hours?|minutes?)\\b",
+            "\\bhalf[- ](hour|day)\\b"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "large_input",
+      "description": "Very long text or a high volume of data",
+      "items": [
+        {
+          "id": "large_long_input",
+          "description": "Very long text or a large batch",
+          "applies_if": "\\b(reason|text|comment|characters?|all employees|batch|bulk|list|employees?|requests?)\\b",
+          "patterns": [
+            "\\b(very long|too long|longest|oversized)\\b",
+            "\\b(maximum|max) length\\b",
+            "\\b\\d{3,} characters\\b",
+            "\\blarge (input|text|file|payload|volume|batch|number)\\b",
+            "\\bbulk\\b",
+            "\\bthousands?\\b",
+            "\\b\\d{4,} (employees|records|requests|shifts)\\b"
+          ]
+        }
+      ]
+    }
+  ]
+}
