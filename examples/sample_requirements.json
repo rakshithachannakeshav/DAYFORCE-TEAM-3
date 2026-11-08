@@ -1,0 +1,163 @@
+[
+  {
+    "id": "REQ-TC-001",
+    "title": "Missed punch detection",
+    "description": "The system must detect shifts where an employee has a clock-in but no clock-out and flag them for correction.",
+    "actor": "Employee",
+    "rules": [
+      "A shift with a clock-in and no clock-out after 16 hours is flagged as a missed punch.",
+      "The flagged shift is shown to the employee's manager for review.",
+      "The employee can submit a correction request with a proposed clock-out time.",
+      "A proposed clock-out time cannot be earlier than the clock-in time."
+    ],
+    "priority": "high",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-TC-002",
+    "title": "Daily overtime calculation",
+    "description": "Hours worked beyond the daily threshold are calculated as overtime and paid at a higher rate.",
+    "actor": "Payroll admin",
+    "rules": [
+      "Hours over 8 in a single workday are classified as overtime.",
+      "Hours over 12 in a single workday are classified as double time.",
+      "Unpaid break time is excluded from worked hours.",
+      "Overtime is calculated per workday, using the employee's local time zone."
+    ],
+    "priority": "high",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-TC-003",
+    "title": "Weekly overtime risk alert",
+    "description": "Managers are alerted when an employee is close to exceeding the weekly hours limit.",
+    "actor": "Manager",
+    "rules": [
+      "An alert is raised when an employee's scheduled plus worked hours for the week reach 38 or more.",
+      "The alert is sent once per employee per week.",
+      "The alert is not sent for employees marked as exempt from overtime."
+    ],
+    "priority": "medium",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-PTO-004",
+    "title": "Leave request submission",
+    "description": "Employees can request paid time off for future dates, subject to their available balance.",
+    "actor": "Employee",
+    "rules": [
+      "A leave request must have a start date that is today or later.",
+      "The end date must not be before the start date.",
+      "A request is rejected if the requested days exceed the available balance.",
+      "Weekends and company holidays are not counted against the balance.",
+      "A request overlapping an existing approved leave is rejected."
+    ],
+    "priority": "high",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-PTO-005",
+    "title": "Leave approval workflow",
+    "description": "Managers approve or reject leave requests from their direct reports.",
+    "actor": "Manager",
+    "rules": [
+      "Only the employee's direct manager can approve or reject the request.",
+      "A rejection requires a reason of at least 10 characters.",
+      "An approved request deducts days from the employee's balance immediately.",
+      "A request not actioned within 5 working days is escalated to the next-level manager."
+    ],
+    "priority": "medium",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-PTO-006",
+    "title": "Monthly leave accrual",
+    "description": "Leave balance accrues each month based on length of service.",
+    "actor": "Payroll admin",
+    "rules": [
+      "Employees with under 2 years of service accrue 1.5 days per month.",
+      "Employees with 2 or more years of service accrue 2 days per month.",
+      "Accrual for a partial first month is prorated by days worked.",
+      "Balance is capped at 30 days; accrual stops at the cap."
+    ],
+    "priority": "medium",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-SW-007",
+    "title": "Shift swap request",
+    "description": "Two employees can swap shifts, with manager approval.",
+    "actor": "Employee",
+    "rules": [
+      "Both employees must be qualified for the role on the swapped shift.",
+      "A swap must not cause either employee to exceed 48 scheduled hours in the week.",
+      "A swap must not leave less than 11 hours rest between consecutive shifts for either employee.",
+      "The swap takes effect only after the second employee accepts and the manager approves."
+    ],
+    "priority": "high",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-SW-008",
+    "title": "Schedule conflict detection",
+    "description": "The system must prevent overlapping assignments for the same employee.",
+    "actor": "Manager",
+    "rules": [
+      "An employee cannot be assigned two shifts that overlap in time.",
+      "An employee cannot be scheduled during approved leave.",
+      "A conflict is shown to the manager at the time of assignment, not after saving."
+    ],
+    "priority": "high",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-TC-009",
+    "title": "Timecard approval and lock",
+    "description": "Timecards are approved by managers and locked before payroll runs.",
+    "actor": "Manager",
+    "rules": [
+      "A manager can approve timecards only for their direct reports.",
+      "An approved timecard cannot be edited by the employee.",
+      "Timecards for a pay period are locked at payroll cutoff.",
+      "Edits to a locked timecard require payroll admin permission and are recorded in an audit log."
+    ],
+    "priority": "high",
+    "intentionally_ambiguous": false
+  },
+  {
+    "id": "REQ-AMB-010",
+    "title": "Handle overtime properly",
+    "description": "The system should handle overtime properly for all employees.",
+    "actor": "Payroll admin",
+    "rules": [
+      "Overtime should be handled correctly.",
+      "Employees should be treated fairly."
+    ],
+    "priority": "medium",
+    "intentionally_ambiguous": true
+  },
+  {
+    "id": "REQ-AMB-011",
+    "title": "Fast timecard approvals",
+    "description": "Timecard approval should be quick and easy for managers.",
+    "actor": "Manager",
+    "rules": [
+      "Approvals should happen in a reasonable time.",
+      "The approval screen should be user friendly."
+    ],
+    "priority": "low",
+    "intentionally_ambiguous": true
+  },
+  {
+    "id": "REQ-AMB-012",
+    "title": "Break compliance",
+    "description": "Employees must take breaks as required by company policy and local law.",
+    "actor": "Employee",
+    "rules": [
+      "Break violations should be flagged.",
+      "The system should follow all applicable rules."
+    ],
+    "priority": "medium",
+    "intentionally_ambiguous": true
+  }
+]
