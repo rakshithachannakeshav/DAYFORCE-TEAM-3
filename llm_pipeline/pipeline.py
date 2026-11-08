@@ -309,8 +309,10 @@ class GenerationPipeline:
             if history and history[-1].startswith(f"call {calls}:"):
                 logger.warning("generation %s", history[-1])
 
-        logger.info("generation finished after %d call(s); %d gap(s) remain", calls, len(draft.report.gaps))
-        return self._build_result(req, ctx, draft, rule_ambiguities, calls, started)
+        result = self._build_result(req, ctx, draft, rule_ambiguities, calls, started)
+        # logged after building the result: blocked-criterion gaps are only named there
+        logger.info("generation finished after %d call(s); %d gap(s) remain", calls, len(result.coverage.gaps))
+        return result
 
     async def _supplement(
         self, draft: _Draft, ctx: Context, tasks: list[Task]

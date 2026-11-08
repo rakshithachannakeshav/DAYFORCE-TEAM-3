@@ -257,8 +257,17 @@ is kept but does not count towards validated coverage, and a warning names it.
 | between 8 and 64 characters | range | 7 rejected · 8 accepted · 64 accepted · 65 rejected |
 | at least 1 digit | min | 0 rejected · 1 accepted · 2 accepted |
 | at most 3 reset emails | max | 2 accepted · 3 accepted · 4 rejected |
-| more than 5 / less than 10 | exclusive | 5 / 6 and 9 / 10 (satisfies / does not satisfy) |
-| expires 30 minutes after / within 2 hours | threshold | 29 before · 30 *must be clarified* · 31 after – **plus an ambiguity** asking whether exactly 30 is inside the limit |
+| 38 or more / 2 or more years / 5 or fewer | min / max | same values as at least / at most |
+| more than 5, over 8, exceed 48 / less than 10, under 2 years | exclusive | 8 / 9 and 9 / 10 ("matches '…'" / "does not match '…'") |
+| capped at 30 days | cap | 29 below · 30 at the cap · 31 never reached |
+| expires 30 minutes after / within 5 working days / after 16 hours | threshold | 29 before · 30 *must be clarified* · 31 after – **plus an ambiguity** asking whether exactly 30 is inside the limit |
+
+Labels say **accepted / rejected** only when the sentence decides acceptance ("must", "can", "requires",
+"only" …). For conditions and triggers ("an alert is raised when hours reach 38 or more", "employees
+with 2 or more years accrue 2 days") they say **matches / does not match**, because nothing is rejected.
+Negated limits ("must **not** exceed 48 hours") are marked `inverted`. Units come from the word after
+the number or, if missing, the nearest plural measure noun before it ("Hours over 8" → hours).
+Decimals ("1.5 days per month") and rates ("per month") are never turned into limits.
 
 Each limit is attached to the criterion whose text contains its numbers and best matches
 the sentence it came from. Numeric phrases without a direction ("after 5 attempts") become
@@ -319,6 +328,10 @@ Two layers, merged and de-duplicated (`merge_ambiguities`), renumbered `AMB-1…
 ## 6. Output schema
 
 ### Request – `POST /api/llm/generate`
+The dataset format of `examples/sample_requirements.json` is accepted as well: `id` is read as
+`requirement_id`, `rules` as `business_rules`; other extra fields (e.g. `intentionally_ambiguous`)
+are ignored. Responses always use the field names below.
+
 ```json
 {
   "requirement_id": "REQ-101",          // optional – auto "REQ-<hash>" if omitted
@@ -414,6 +427,11 @@ pip install -r requirements.txt
 python -m llm_pipeline examples/password_reset.json -o output.json
 python -m llm_pipeline examples/ambiguous_search.json
 
+# Batch: a JSON LIST of requirements (the team dataset) -> results/<id>.json + results/summary.json
+python -m llm_pipeline examples/sample_requirements.json --out-dir results
+python -m llm_pipeline examples/sample_requirements.json --only REQ-TC-002,REQ-AMB-010
+python -m llm_pipeline examples/sample_requirements.json --show-prompt --only REQ-SW-007
+
 # API demo
 uvicorn llm_pipeline.server:app --reload --port 8001
 # open http://localhost:8001/docs
@@ -433,7 +451,7 @@ other apps on an 8 GB machine, and raise `LLM_TIMEOUT_SECONDS`). Not benchmarked
 
 ```bash
 source .venv/bin/activate
-pytest -v                       # 121 tests, all with mocked LLM responses (no Ollama needed)
+pytest -v                       # 168 tests, all with mocked LLM responses (no Ollama needed)
 pytest tests/test_pipeline.py -v -k "vague or boundary or coverage"   # a focused subset for a demo
 ```
 
@@ -451,6 +469,7 @@ pytest tests/test_pipeline.py -v -k "vague or boundary or coverage"   # a focuse
 | 10. Coverage calculation | `test_coverage_distinguishes_generated_from_validated`, `test_coverage_is_never_100_when_criteria_are_untested`, `test_good_answer_is_fully_validated_in_one_call` |
 | Robustness | invalid / fenced / empty / truncated JSON, schema errors, missing ACs, retry exhaustion, timeouts, Ollama down, enum normalisation (`tests/test_pipeline.py`, bottom) |
 | Components | JSON parsing, Ollama client over mocked HTTP, FastAPI routes (`tests/test_components.py`) |
+| Team dataset (`examples/sample_requirements.json`) | `tests/test_sample_dataset.py` – `id`/`rules` format, ambiguity detection vs. the `intentionally_ambiguous` labels (12/12), exact boundary values for every limit, vague rules never validated, batch CLI |
 | Regressions from real `qwen2.5:3b` runs | `tests/test_regressions.py` – incl. **replays** of real model answers in `tests/data/` |
 | Internal consistency | every pipeline test runs `conftest.assert_consistent`: traceability ↔ tests ↔ coverage ↔ gaps ↔ warnings |
 

@@ -27,7 +27,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .ambiguity import VAGUE_TERMS, Limit, extract_boundaries, parse_limits
+from .ambiguity import VAGUE_TERMS, Limit, blocking_terms, extract_boundaries, parse_limits
 from .schemas import (
     AcceptanceCriterion,
     Assumption,
@@ -59,8 +59,8 @@ def content_words(s: str) -> set[str]:
     for w in re.findall(r"[a-z]{4,}", s.lower()):
         if w in _STOP:
             continue
-        if w.endswith("ies") and len(w) > 5:
-            w = w[:-3] + "y"
+        if (w.endswith("ies") or w.endswith("ied")) and len(w) > 5:
+            w = w[:-3] + "y"  # categories -> category, classified -> classify
         elif w.endswith("es") and len(w) > 5 and w[-3] in "sxz":
             w = w[:-2]
         elif w.endswith("s") and not w.endswith("ss") and len(w) > 4:
@@ -69,9 +69,24 @@ def content_words(s: str) -> set[str]:
     return out
 
 
+def _fmt(x: float) -> str:
+    return str(int(x)) if float(x).is_integer() else f"{x:g}"
+
+
 def numbers(s: str) -> set[str]:
-    """Numbers in a text, ignoring IDs such as AC-1, TC-004, REQ-101."""
-    return set(re.findall(r"\d+", _ID_RE.sub(" ", s or "")))
+    """Numbers in a text ("1.5" stays one number), ignoring IDs such as AC-1, TC-004, REQ-101."""
+    return {_fmt(float(n)) for n in re.findall(r"(?<![\d.])\d+(?:\.\d+)?", _ID_RE.sub(" ", s or ""))}
+
+
+def derived_numbers(inputs: set[str], stated: set[str]) -> set[str]:
+    """Values a tester can legitimately compute: the test's own input numbers, and the difference
+    between an input and a number STATED in the requirement (a 10-hour day with "over 8 is
+    overtime" -> 2 overtime hours). Kept deliberately narrow so invented values stay invented."""
+    out = set(inputs)
+    for a in (float(x) for x in inputs):
+        for b in (float(x) for x in stated):
+            out.add(_fmt(abs(a - b)))
+    return out
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
@@ -222,6 +237,7 @@ class Context:
     leftover_boundaries: list[str]  # numeric phrases with no parsable direction -> LLM must write the test
     allowed_numbers: set[str]       # numbers stated in the requirement, +/- 1 (boundary neighbours)
     requirement_words: set[str]
+    stated_numbers: set[str] = field(default_factory=set)  # exactly the numbers in the requirement text
 
     @classmethod
     def from_requirement(cls, req: RequirementInput) -> "Context":
@@ -232,7 +248,8 @@ class Context:
         stated = numbers(text)
         allowed = set(stated)
         for n in stated:
-            allowed |= {str(int(n) - 1), str(int(n) + 1)}
+            if "." not in n:  # boundary neighbours only for whole numbers
+                allowed |= {str(int(n) - 1), str(int(n) + 1)}
         return cls(
             requirement_id=req.requirement_id or "",
             actor=req.actor or "user",
@@ -241,6 +258,7 @@ class Context:
             limits=limits,
             leftover_boundaries=leftover,
             allowed_numbers=allowed,
+            stated_numbers=stated,
             requirement_words=content_words(text),
         )
 
@@ -373,7 +391,7 @@ def ground_criteria(out: LLMOutput, ctx: Context, notes: list[str]) -> None:
         reasons = []
         bad_nums = numbers(text) - ctx.allowed_numbers
         if bad_nums:
-            reasons.append(f"uses value(s) {sorted(bad_nums, key=int)} that the requirement does not state")
+            reasons.append(f"uses value(s) {sorted(bad_nums, key=float)} that the requirement does not state")
         words = content_words(ac.description)
         new_words = sorted(words - ctx.requirement_words)
         if len(words) >= 3 and len(new_words) / len(words) > 0.5:
@@ -524,19 +542,24 @@ _COMPARATIVE_BEFORE = re.compile(
 
 
 def _inside_limit(lim: Limit, v: int) -> bool | None:
-    """Is value v allowed by the limit? None = cannot tell (e.g. exactly at an unclear threshold)."""
+    """Is value v ALLOWED by the limit? None = the limit is not an accept/reject decision
+    (category thresholds, caps, non-negated "more than N" conditions) or v is exactly at an
+    unclear threshold."""
+    if not lim.validity or lim.kind == "cap":
+        return None
     if lim.kind == "range":
         return lim.low <= v <= lim.high
     if lim.kind == "max":
         return v <= lim.high
     if lim.kind == "min":
         return v >= lim.low
-    if lim.kind == "xmin":
-        return v > lim.low
-    if lim.kind == "xmax":
-        return v < lim.high
     if lim.kind == "threshold":
         return None if v == lim.high else v < lim.high
+    if lim.kind in ("xmin", "xmax"):
+        if not lim.inverted:
+            return None  # "Hours over 8 are overtime" classifies; it does not accept or reject
+        matches = v > lim.low if lim.kind == "xmin" else v < lim.high
+        return not matches  # "must not exceed 48 hours": 49 matches the forbidden condition
     return None
 
 
@@ -566,6 +589,16 @@ def _limit_contradiction(inputs: str, exp: str, criterion: str, ctx: Context) ->
     return None
 
 
+_CONDITIONAL_RE = re.compile(r"\b(if|when|unless|only|whenever|until|except)\b", re.IGNORECASE)
+# (word in the rule, its opposite) - only checked against UNCONDITIONAL rules, because for
+# "a request is rejected IF ..." a positive test legitimately expects acceptance.
+_OPPOSITES = [
+    (r"\bexclud\w*", r"\binclud\w*"), (r"\binclud\w*", r"\bexclud\w*"),
+    (r"\bnot counted\b", r"\b(?<!not )counted\b"), (r"\bcannot be edited\b", r"\b(?<!not )(?:can be|is) edited\b"),
+    (r"\blocked\b", r"\bunlocked\b"), (r"\bdeduct\w*", r"\b(?:add|credit)\w*"),
+]
+
+
 def _invalid_test_reason(tc: TestScenario, ctx: Context, allowed_in_results: set[str],
                          criterion: str = "") -> str | None:
     """Why a model-written test must not be kept (None = keep)."""
@@ -579,9 +612,24 @@ def _invalid_test_reason(tc: TestScenario, ctx: Context, allowed_in_results: set
         return "its expected result only restates the criterion; it must describe an observable outcome"
     if any(norm_text(step) == norm_text(exp) for step in tc.test_steps):
         return "its expected result repeats one of its own steps; it must describe an observable outcome"
-    bad = numbers(exp) - allowed_in_results
+    # Opposite of an unconditional rule: rule "break time is EXCLUDED", positive test expects "INCLUDED".
+    if tc.test_type == "positive" and criterion and not _CONDITIONAL_RE.search(criterion):
+        for rule_word, opposite in _OPPOSITES:
+            if (re.search(rule_word, criterion, re.I) and not re.search(opposite, criterion, re.I)
+                    and re.search(opposite, exp, re.I) and not re.search(rule_word, exp, re.I)):
+                return f"contradicts its criterion - the rule says '{re.search(rule_word, criterion, re.I).group(0)}' " \
+                       f"but it expects '{re.search(opposite, exp, re.I).group(0)}'"
+    # Restatement without a concrete input: "Process a workday with hours over 8" -> "Classify hours
+    # over 8 as overtime". Every expected word is in the rule and the test uses no value of its own.
+    crit_words = content_words(criterion)
+    own_values = numbers(" ".join([*tc.test_steps, *tc.test_data])) - ctx.stated_numbers
+    if (criterion and not states_outcome and len(exp_words) >= 3 and not own_values
+            and len(exp_words & crit_words) / len(exp_words) >= 0.8):
+        return "its expected result only restates the criterion and the test uses no concrete input"
+    input_nums = numbers(" ".join([*tc.test_steps, *tc.test_data]))
+    bad = numbers(exp) - allowed_in_results - derived_numbers(input_nums, ctx.stated_numbers)
     if bad:
-        return f"expects value(s) {sorted(bad, key=int)} that the requirement does not state"
+        return f"expects value(s) {sorted(bad, key=float)} that the requirement does not state"
     stated = norm_text(" ".join(ctx.rules))
     quoted = [q for pair in _QUOTED_RE.findall(exp) for q in pair if q and norm_text(q) not in stated]
     if quoted:
@@ -764,10 +812,15 @@ def check_output(out: LLMOutput, ctx: Context) -> CheckReport:
         a.boundary_required = bool(my_bounds)
         a.has_boundary = all(b.covered for b in my_bounds) if my_bounds else False
         text = f"{ac.description} {ac.then}"
-        if ac.id not in ctx.seed_ids:
-            a.blocked_terms = vague_terms_in(text) + (["placeholder"] if _PLACEHOLDER_RE.search(text) else [])
-            if _PERF_RE.search(text) and not numbers(text):
-                a.blocked_terms.append(PERFORMANCE_TERM)  # "within a specified response time"
+        # Rule-seeded criteria are checked too: a vague business rule ("Overtime should be
+        # handled correctly.") is explicit but untestable, so it must never become "validated".
+        # judge description and outcome separately: joined, a short vague rule doubles in length
+        # and stops counting as "short" (real bug: "Overtime should be handled correctly." validated)
+        a.blocked_terms = sorted(set(blocking_terms(ac.description)) | set(blocking_terms(ac.then)))
+        if _PLACEHOLDER_RE.search(text):
+            a.blocked_terms.append("placeholder")
+        if ac.id not in ctx.seed_ids and _PERF_RE.search(text) and not numbers(text):
+            a.blocked_terms.append(PERFORMANCE_TERM)  # "within a specified response time"
 
         desc = ac.description if len(ac.description) <= 90 else ac.description[:87] + "..."
         pos_ids = [tc.test_case_id for tc in mine_valid if tc.test_type == "positive"]
@@ -796,7 +849,7 @@ def check_output(out: LLMOutput, ctx: Context) -> CheckReport:
             for b in my_bounds:
                 if not b.covered:
                     a.missing.append(f"boundary test for '{b.limit}'")
-                    nums = ", ".join(sorted(limit_ac[b.limit][0], key=int))
+                    nums = ", ".join(sorted(limit_ac[b.limit][0], key=float))
                     rep.tasks.append(Task("boundary", ac.id,
                         f"{ac.id} has no boundary test for '{b.limit}': write ONE boundary test whose test_data covers "
                         f"the values just below, at, and just above {nums}.", detail=b.limit,

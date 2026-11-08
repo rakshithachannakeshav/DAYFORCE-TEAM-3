@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 # --------------------------------------------------------------------------- #
 # Enumerations
@@ -95,15 +95,22 @@ class _Lenient(BaseModel):
 class RequirementInput(_Lenient):
     """A structured product requirement, as sent by the backend."""
 
+    # Accepts both this contract's names and the dataset format used in
+    # examples/sample_requirements.json ("id", "rules"). Output always uses the names below.
     requirement_id: str | None = Field(
         default=None,
         max_length=64,
-        description="Backend ID of the requirement, e.g. 'REQ-101'. Generated if omitted.",
+        validation_alias=AliasChoices("requirement_id", "id"),
+        description="Backend ID of the requirement, e.g. 'REQ-101'. Generated if omitted. Alias: 'id'.",
     )
     title: str | None = Field(default=None, max_length=200)
     description: str = Field(..., description="The requirement text / user story.")
     actor: str | None = Field(default=None, max_length=100, description="Primary user role, e.g. 'registered user'.")
-    business_rules: list[str] = Field(default_factory=list, description="Explicitly stated rules / constraints.")
+    business_rules: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices("business_rules", "rules"),
+        description="Explicitly stated rules / constraints. Alias: 'rules'.",
+    )
     context: str | None = Field(default=None, max_length=2000, description="Optional domain / system context.")
     priority: Priority | None = None
 

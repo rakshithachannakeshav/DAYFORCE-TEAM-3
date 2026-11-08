@@ -8,7 +8,7 @@ requirement traceability, and automated-test recommendations.
 
 | Module | Status |
 |---|---|
-| `llm_pipeline/` – LLM & generation pipeline (Ollama) | Implemented, 121 tests – see [docs/LLM_PIPELINE.md](docs/LLM_PIPELINE.md) |
+| `llm_pipeline/` – LLM & generation pipeline (Ollama) | Implemented, 168 tests – see [docs/LLM_PIPELINE.md](docs/LLM_PIPELINE.md) |
 | Backend (FastAPI) | Mount `llm_pipeline.api.router` |
 | Frontend | Consume `POST /api/llm/generate` |
 

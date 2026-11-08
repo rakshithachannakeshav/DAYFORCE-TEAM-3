@@ -74,12 +74,31 @@ _VAGUE_TERMS: dict[str, tuple[str, str]] = {
     "accurate": ("medium", "What accuracy is required, and how is it measured?"),
     "timely": ("medium", "What exact time limit is meant by 'timely'?"),
     "instantly": ("high", "What exact time limit is meant by 'instantly'?"),
-    "immediately": ("medium", "What exact time limit is meant by 'immediately'?"),
+    "immediately": ("low", "Is 'immediately' a separate time limit, or does it just mean 'as part of the same action'?"),
+    "fairly": ("high", "Which concrete rules define 'fair' treatment?"),
+    "fair": ("high", "Which concrete rules define 'fair' treatment?"),
+    "applicable": ("high", "Which rules exactly are 'applicable'? List them or reference the specification."),
+    "violation": ("high", "Which conditions count as a violation (limits, timing, frequency)?"),
+    "violations": ("high", "Which conditions count as a violation (limits, timing, frequency)?"),
     "real-time": ("high", "What maximum delay counts as 'real-time'?"),
     "acceptable": ("medium", "What value is 'acceptable'?"),
 }
 
 VAGUE_TERMS = frozenset(_VAGUE_TERMS)  # public: used by the coverage checker for measurability
+
+
+def blocking_terms(text: str) -> list[str]:
+    """Vague terms that make a criterion untestable.
+
+    * any medium/high-severity vague term ("fast", "relevant", "reasonable", "fairly"), or
+    * any vague term at all in a short statement with no number - the vague word IS the
+      whole condition ("Overtime should be handled correctly.").
+    Low-severity words inside an otherwise concrete rule do not block
+    ("An approved request deducts days from the balance immediately").
+    """
+    found = [t for t in VAGUE_TERMS if re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", text, re.IGNORECASE)]
+    short = len(re.findall(r"\w+", text)) <= 8 and not re.search(r"\d", text)
+    return sorted(t for t in found if short or _VAGUE_TERMS[t][0] in ("medium", "high"))
 
 _PATTERN_RULES: list[_Rule] = [
     _Rule(r"\b(etc\.?|and so on|and more)\b", "Open-ended list - the full set of items is not defined.",
@@ -90,6 +109,10 @@ _PATTERN_RULES: list[_Rule] = [
           "Should both conditions apply, or is either one sufficient?", "medium"),
     _Rule(r"\b(may|might|could|optionally)\b", "Weak modal verb - unclear whether behaviour is mandatory.",
           "Is this behaviour mandatory (must) or optional?", "low"),
+    _Rule(r"\b(company policy|local laws?|applicable (?:rules|laws|regulations|policies)|relevant (?:laws|regulations)|"
+          r"as required by|industry standards?|best practices?|legal requirements?)\b",
+          "Refers to rules defined elsewhere (policy, law, standards) without stating them - they cannot be tested.",
+          "Which concrete rules apply? Please list them or link the specification.", "high"),
 ]
 
 _ACTOR_WORDS = re.compile(
@@ -99,7 +122,8 @@ _ACTOR_WORDS = re.compile(
 )
 _OUTCOME_WORDS = re.compile(
     r"\b(must|shall|should|will|can|cannot|able to|is displayed|is shown|returns?|receives?|redirect|"
-    r"so that|then)\b",
+    r"so that|then)\b"
+    r"|\b(?:is|are|be|been|gets?)\s+(?:not\s+)?[a-z]+(?:ed|en)\b",  # passive outcome: "is flagged", "are classified"
     re.IGNORECASE,
 )
 _PERF_WORDS = re.compile(r"\b(performance|load|response time|latency|throughput|concurrent)\b", re.IGNORECASE)
@@ -153,6 +177,10 @@ def detect_ambiguities(req: RequirementInput) -> list[Ambiguity]:
     if not _OUTCOME_WORDS.search(text):
         add("N/A (expected outcome)", "No expected outcome or obligation is stated.",
             "What should the system do, and what result should the user observe?", "high")
+    for rule in req.business_rules:
+        if blocking_terms(rule) and len(re.findall(r"\w+", rule)) <= 8 and not _NUMBER.search(rule):
+            add(f"rule: {rule}", f"Business rule '{rule}' has no testable condition - only a vague judgement.",
+                "What concrete, checkable behaviour does this rule require?", "high")
     if _PERF_WORDS.search(text) and not _NUMBER.search(text):
         add("N/A (performance target)", "Performance is mentioned without a numeric target.",
             "What are the numeric performance targets?", "high")
@@ -246,11 +274,17 @@ class Limit:
     """A numeric limit stated in the requirement, used for boundary-value analysis.
 
     kinds:
-      range      "between 8 and 64 characters"   (inclusive)
-      min / max  "at least 1 digit", "at most 3"  (inclusive)
-      xmin/xmax  "more than 5", "less than 10"   (exclusive)
-      threshold  "expires 30 minutes after", "within 2 hours" - direction is
-                 clear but inclusivity at exactly N is not stated
+      range      "between 8 and 64 characters"                  (inclusive)
+      min / max  "at least 1 digit", "38 or more", "at most 3"   (inclusive)
+      xmin/xmax  "more than 5", "over 8", "less than 10"         (exclusive)
+      threshold  "expires 30 minutes after", "within 5 working days", "after 16 hours"
+                 - direction is clear but inclusivity at exactly N is not stated
+      cap        "capped at 30 days" - a computed value that must never exceed N
+
+    ``inverted`` is True when the rule forbids the condition ("must NOT exceed 48 hours",
+    "must not leave less than 11 hours"): matching the condition is then the invalid case.
+    ``validity`` is True when the limit decides whether an input/action is accepted (expiry,
+    at least / at most); False for category thresholds ("after 16 hours is flagged").
     """
 
     kind: str
@@ -259,6 +293,8 @@ class Limit:
     unit: str
     phrase: str
     source: str = ""  # the sentence/rule the limit was found in
+    inverted: bool = False
+    validity: bool = True
 
     @property
     def numbers(self) -> set[str]:
@@ -266,16 +302,20 @@ class Limit:
 
     def test_values(self) -> list[str]:
         lo, hi = self.low, self.high
+        match, no_match = f"matches '{self.phrase}'", f"does not match '{self.phrase}'"
+        ok, bad = ("accepted", "rejected") if self.validity else (match, no_match)  # trigger/category -> no verdict
         if self.kind == "range":
-            vals = [(lo - 1, "rejected"), (lo, "accepted"), (hi, "accepted"), (hi + 1, "rejected")]
+            vals = [(lo - 1, bad), (lo, ok), (hi, ok), (hi + 1, bad)]
         elif self.kind == "max":
-            vals = [(hi - 1, "accepted"), (hi, "accepted"), (hi + 1, "rejected")]
+            vals = [(hi - 1, ok), (hi, ok), (hi + 1, bad)]
         elif self.kind == "min":
-            vals = [(lo - 1, "rejected"), (lo, "accepted"), (lo + 1, "accepted")]
-        elif self.kind == "xmin":  # "more than N": N does not satisfy, N+1 does
-            vals = [(lo, "does not satisfy the condition"), (lo + 1, "satisfies the condition")]
+            vals = [(lo - 1, bad), (lo, ok), (lo + 1, ok)]
+        elif self.kind == "xmin":  # "more than N": N does not match, N+1 does
+            vals = [(lo, no_match), (lo + 1, match)]
         elif self.kind == "xmax":  # "less than N"
-            vals = [(hi - 1, "satisfies the condition"), (hi, "does not satisfy the condition")]
+            vals = [(hi - 1, match), (hi, no_match)]
+        elif self.kind == "cap":
+            vals = [(hi - 1, "below the cap"), (hi, "at the cap"), (hi + 1, "never reached - the value stays at the cap")]
         else:  # threshold
             vals = [(hi - 1, "before the limit"), (hi, "exactly at the limit - expected behaviour must be clarified"),
                     (hi + 1, "after the limit")]
@@ -296,17 +336,38 @@ class Limit:
         return " " + " ".join([*words[:-1], last])
 
 
-# Up to two words after the number form the unit ("3 reset emails", "64 characters"),
+# Up to two words after the number form the unit ("3 reset emails", "48 scheduled hours"),
 # but never a verb or connector ("5 failures ARE flagged", "3 items PER hour").
 _NOT_UNIT = (r"(?!(?:and|or|per|after|within|in|of|to|the|a|an|is|are|be|was|were|must|can|cannot|will|should|"
-             r"get|gets|has|have|may|for|from|before|since)\b)")
+             r"get|gets|has|have|may|for|from|before|since|more|less|fewer|above|below|higher|lower)\b)")
 _UNIT = rf"(?:\s+({_NOT_UNIT}[A-Za-z]+(?:\s+{_NOT_UNIT}[a-z]+)?))?"
-_TIME_UNIT = r"(seconds?|minutes?|hours?|days?|weeks?|months?)"
+_TIME_UNIT = r"(seconds?|minutes?|hours?|days?|weeks?|months?|years?)"
+_NUM = r"(?<![\d.])(\d+)(?![.\d])"  # integers only; "1.5 days" is a rate, not a limit
+# measure nouns: "11 hours rest" -> unit "hours"; also used to find a unit BEFORE the number
+_MEASURE = re.compile(r"^(seconds?|minutes?|hours?|days?|weeks?|months?|years?|characters?|chars|digits?|items?|"
+                      r"attempts?|tries|emails?|requests?|mb|gb|kb|%)$", re.IGNORECASE)
+_DECIDES = re.compile(r"\b(must|cannot|can|can't|required|requires?|allowed|permitted|rejected|accepted|only|valid|"
+                      r"invalid|may not|should not)\b", re.IGNORECASE)
+_NEGATED_BEFORE = re.compile(r"\b(must not|cannot|can not|may not|should not|shall not|not)\b", re.IGNORECASE)
 
 
 def _sentences(req: RequirementInput) -> list[str]:
     parts = re.split(r"(?<=[.!?;])\s+|\n", req.description)
     return [p.strip() for p in [*parts, *req.business_rules] if p and p.strip()]
+
+
+def _clean_unit(unit: str | None, sentence: str, start: int) -> str:
+    """Normalise the unit; if none follows the number, use a measure noun just before it
+    ("Hours over 8 in a single workday" -> "hours")."""
+    words = (unit or "").split()
+    if words and _MEASURE.match(words[0]):
+        return words[0]
+    if words:
+        return " ".join(words)
+    before = [w for w in re.findall(r"[A-Za-z%]+", sentence[max(0, start - 60):start]) if _MEASURE.match(w)]
+    # a count goes with a PLURAL measure noun: "worked hours for the week reach 38" -> hours, not week
+    plural = [w for w in before if w.lower().endswith("s")]
+    return (plural or before or [""])[-1].lower()
 
 
 def parse_limits(req: RequirementInput) -> list[Limit]:
@@ -315,30 +376,47 @@ def parse_limits(req: RequirementInput) -> list[Limit]:
     limits: list[Limit] = []
     seen: set[tuple] = set()
 
-    def add(kind: str, low: int | None, high: int | None, unit: str | None, phrase: str, source: str) -> None:
+    def add(kind: str, m: re.Match, low: int | None, high: int | None, unit: str | None, s: str,
+            validity: bool = True) -> None:
         key = (kind, low, high)
-        if key not in seen:
-            seen.add(key)
-            limits.append(Limit(kind, low, high, (unit or "").strip(), phrase.strip(), source))
+        if key in seen:
+            return
+        seen.add(key)
+        inverted = bool(_NEGATED_BEFORE.search(s[:m.start()]))
+        limits.append(Limit(kind, low, high, _clean_unit(unit, s, m.start()), m.group(0).strip(), s, inverted, validity))
 
-    flags = re.IGNORECASE
+    f = re.IGNORECASE
     for s in _sentences(req):
-        for m in re.finditer(r"\bbetween\s+(\d+)\s*(?:and|to|-)\s*(\d+)" + _UNIT, s, flags):
+        # Does this sentence decide whether something is accepted? ("must be at least", "can request at
+        # most", "requires"). If not, its limits are conditions/triggers ("alert when 38 or more").
+        decides = bool(_DECIDES.search(s))
+        for m in re.finditer(rf"\bbetween\s+{_NUM}\s*(?:and|to|-)\s*{_NUM}" + _UNIT, s, f):
             lo, hi = int(m.group(1)), int(m.group(2))
             if lo < hi:
-                add("range", lo, hi, m.group(3), m.group(0), s)
-        for m in re.finditer(r"\b(?:at most|maximum of|max\.?|up to|no more than)\s+(\d+)" + _UNIT, s, flags):
-            add("max", None, int(m.group(1)), m.group(2), m.group(0), s)
-        for m in re.finditer(r"\b(?:at least|minimum of|min\.?|no fewer than|no less than)\s+(\d+)" + _UNIT, s, flags):
-            add("min", int(m.group(1)), None, m.group(2), m.group(0), s)
-        for m in re.finditer(r"\b(?:more than|greater than|over|exceeds?)\s+(\d+)" + _UNIT, s, flags):
-            add("xmin", int(m.group(1)), None, m.group(2), m.group(0), s)
-        for m in re.finditer(r"\b(?:less than|fewer than|under|below)\s+(\d+)" + _UNIT, s, flags):
-            add("xmax", None, int(m.group(1)), m.group(2), m.group(0), s)
-        for m in re.finditer(rf"\b(?:expires?|expiring)\s+(?:after\s+|in\s+)?(\d+)\s+{_TIME_UNIT}", s, flags):
-            add("threshold", None, int(m.group(1)), m.group(2), m.group(0), s)
-        for m in re.finditer(rf"\b(?:valid for|within)\s+(\d+)\s+{_TIME_UNIT}", s, flags):
-            add("threshold", None, int(m.group(1)), m.group(2), m.group(0), s)
+                add("range", m, lo, hi, m.group(3), s, decides)
+        for m in re.finditer(rf"\b(?:at most|maximum of|max\.?|up to|no more than)\s+{_NUM}" + _UNIT, s, f):
+            add("max", m, None, int(m.group(1)), m.group(2), s, decides)
+        for m in re.finditer(rf"{_NUM}{_UNIT}\s+or\s+(?:fewer|less|below|lower)\b", s, f):
+            add("max", m, None, int(m.group(1)), m.group(2), s, decides)
+        for m in re.finditer(rf"\b(?:at least|minimum of|min\.?|no fewer than|no less than)\s+{_NUM}" + _UNIT, s, f):
+            add("min", m, int(m.group(1)), None, m.group(2), s, decides)
+        for m in re.finditer(rf"{_NUM}\s+or\s+(?:more|above|higher|greater){_UNIT}", s, f):  # "2 or more years"
+            add("min", m, int(m.group(1)), None, m.group(2), s, decides)
+        for m in re.finditer(rf"{_NUM}{_UNIT}\s+or\s+(?:more|above|higher|greater)\b", s, f):  # "38 hours or more"
+            add("min", m, int(m.group(1)), None, m.group(2), s, decides)
+        for m in re.finditer(rf"\b(?:more than|greater than|over|exceeds?|exceeding)\s+{_NUM}" + _UNIT, s, f):
+            add("xmin", m, int(m.group(1)), None, m.group(2), s)
+        for m in re.finditer(rf"\b(?:less than|fewer than|under|below)\s+{_NUM}" + _UNIT, s, f):
+            add("xmax", m, None, int(m.group(1)), m.group(2), s)
+        for m in re.finditer(rf"\b(?:capped at|cap of|limited to)\s+{_NUM}" + _UNIT, s, f):
+            add("cap", m, None, int(m.group(1)), m.group(2), s)
+        for m in re.finditer(rf"\b(?:expires?|expiring)\s+(?:after\s+|in\s+)?{_NUM}\s+((?:[a-z]+\s+)?{_TIME_UNIT})", s, f):
+            add("threshold", m, None, int(m.group(1)), m.group(2), s)
+        for m in re.finditer(rf"\b(?:valid for|within)\s+{_NUM}\s+((?:[a-z]+\s+)?{_TIME_UNIT})", s, f):
+            add("threshold", m, None, int(m.group(1)), m.group(2), s)
+        for m in re.finditer(rf"\bafter\s+{_NUM}\s+((?:[a-z]+\s+)?{_TIME_UNIT})", s, f):  # "after 16 hours is flagged"
+            if not re.search(r"\bexpir", s[max(0, m.start() - 20):m.start()], f):
+                add("threshold", m, None, int(m.group(1)), m.group(2), s, validity=False)
     return limits
 
 
@@ -351,7 +429,8 @@ def extract_boundaries(req: RequirementInput) -> list[str]:
         r"\b(minimum|maximum|min|max)\s+[a-z ]{1,25}?\s+(of|is)\s+\d+[\w%]*",  # "minimum age of 18"
         r"\bbetween\s+\d+\s*(and|-|to)\s*\d+(\s*(characters|chars|digits|items|years|days|minutes|seconds|mb|gb|kb|%))?",
         r"\b\d+\s*(-|to)\s*\d+\s*(characters|chars|digits|items|years|days|minutes|seconds|attempts|mb|gb|kb|%)",
-        r"\b\d+\s*(characters|chars|digits|attempts|tries|minutes|seconds|hours|days|mb|gb|kb|items|%)",
+        # bare "N unit"; not a decimal fragment ("1.5 days") and not a rate ("2 days per month")
+        r"(?<![\d.])\d+\s*(characters|chars|digits|attempts|tries|minutes|seconds|hours|days|mb|gb|kb|items|%)(?!\s+per\b)",
     ]
     hits: list[str] = []
     for p in patterns:
