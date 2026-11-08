@@ -21,6 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from generator import generate_baseline_test_suite
 from schemas import GenerationResult, Requirement
 
+from llm_pipeline.api import router as llm_router
+
 SAMPLE_REQUIREMENTS_PATH = (
     Path(__file__).resolve().parent.parent / "eval" / "sample_requirements.json"
 )
@@ -56,6 +58,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount LLM Pipeline router (/api/llm/generate, /api/llm/health)
+app.include_router(llm_router)
 
 
 @app.get("/api/health")

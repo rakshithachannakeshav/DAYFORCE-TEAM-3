@@ -94,3 +94,9 @@ def test_generate_and_retrieve_history():
 def test_get_nonexistent_history_run_returns_404():
     response = client.get("/api/history/999999")
     assert response.status_code == 404
+
+
+def test_llm_pipeline_routes_are_mounted():
+    paths = app.openapi()["paths"]
+    assert "/api/llm/generate" in paths
+    assert "/api/llm/health" in paths
