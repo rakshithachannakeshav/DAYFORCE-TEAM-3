@@ -1,0 +1,6 @@
+{
+  "requirement_id": "REQ-202",
+  "title": "Product search",
+  "description": "The search should be fast and user-friendly and return relevant products, categories, brands etc.",
+  "priority": "medium"
+}
