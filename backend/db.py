@@ -14,6 +14,7 @@ DEFAULT_DB_PATH = Path(__file__).resolve().parent / "app.db"
 
 
 def get_connection(db_path: Path | str | None = None) -> sqlite3.Connection:
+    """Open a SQLite connection whose rows can be read by column name."""
     path = str(db_path or DEFAULT_DB_PATH)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row

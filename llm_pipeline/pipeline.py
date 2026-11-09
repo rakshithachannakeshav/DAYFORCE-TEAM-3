@@ -116,6 +116,7 @@ def _decoding_schema(model: type, caps: dict[str, int]) -> dict[str, Any]:
 
 
 def build_output_schema(max_criteria: int = MAX_ACCEPTANCE_CRITERIA) -> dict[str, Any]:
+    """Build the schema that constrains the model's main generation response."""
     return _decoding_schema(LLMOutput, {
         "ambiguities": MAX_AMBIGUITIES,
         "assumptions": MAX_ASSUMPTIONS,
@@ -125,10 +126,8 @@ def build_output_schema(max_criteria: int = MAX_ACCEPTANCE_CRITERIA) -> dict[str
     })
 
 
-LLM_OUTPUT_JSON_SCHEMA = build_output_schema()
-
-
 def _format_validation_error(exc: ValidationError) -> list[str]:
+    """Turn a Pydantic error into short lines, at most 15, that can be shown to the model."""
     return [f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:15]]
 
 
@@ -157,6 +156,7 @@ def validate_scenarios_leniently(data: dict[str, Any]) -> tuple[dict[str, Any], 
 
 
 def _dedupe(items: list[str]) -> list[str]:
+    """Remove repeats and keep the original order."""
     seen, out = set(), []
     for x in items:
         if x not in seen:
@@ -167,23 +167,27 @@ def _dedupe(items: list[str]) -> list[str]:
 
 @dataclass
 class _Draft:
+    """The best usable output so far, with its check report and notes."""
     out: LLMOutput
     report: CheckReport
     notes: list[str]  # notes accumulated across all calls
 
 
 class _RetryableQualityError(Exception):
+    """The output parsed but failed the quality checks, so generation should be retried."""
     def __init__(self, problems: list[str]):
         super().__init__("; ".join(problems))
         self.problems = problems
 
 
 class GenerationPipeline:
+    """Turns one requirement into a checked GenerationResult. See the module docstring for the stages."""
     def __init__(self, client: LLMClient | None = None, settings: LLMSettings | None = None):
         self.settings = settings or get_settings()
         self.client: LLMClient = client or OllamaClient(self.settings)
 
     async def _call(self, messages: list[ChatMessage], schema: dict[str, Any]):
+        """Send one request to the model, with an outer timeout."""
         # Outer timeout is a safety net in case the client itself hangs.
         return await asyncio.wait_for(
             self.client.chat(messages, json_schema=schema),
@@ -192,6 +196,7 @@ class GenerationPipeline:
 
     @staticmethod
     def _parse(content: str, truncated: bool, notes: list[str]) -> dict[str, Any]:
+        """Parse the model's JSON, salvaging complete items if the output was cut off."""
         try:
             return parse_llm_json(content)
         except OutputParseError:
@@ -201,6 +206,7 @@ class GenerationPipeline:
             return salvage_truncated_json(content)
 
     async def generate(self, requirement: RequirementInput) -> GenerationResult:
+        """Run all stages for one requirement. Raises a PipelineError if nothing usable is produced."""
         started = time.perf_counter()
 
         # 1. validation (raises InvalidRequirementError -> HTTP 422)
@@ -222,7 +228,7 @@ class GenerationPipeline:
         fallback: _Draft | None = None  # usable criteria, but every model-written test was invalid
 
         # ---- phase 1: full generation, retried only if the output is unusable --
-        for attempt in range(1, self.settings.max_attempts + 1):
+        for _ in range(self.settings.max_attempts):
             calls += 1
             raw: str | None = None
             truncated = False
@@ -394,6 +400,7 @@ class GenerationPipeline:
 
     @staticmethod
     def _repair(base: list[ChatMessage], raw: str | None, errors: list[str], truncated: bool) -> list[ChatMessage]:
+        """Build a retry request that tells the model what was wrong with its last answer."""
         msgs = list(base)
         if raw and not truncated:
             msgs.append(ChatMessage("assistant", raw[:6000]))
@@ -409,12 +416,14 @@ class GenerationPipeline:
         calls: int,
         started: float,
     ) -> GenerationResult:
+        """Assemble the final response: ambiguities, traceability, coverage and automation advice."""
         out, rep = draft.out, draft.report
         llm_amb = [a.model_copy(update={"source": "llm"}) for a in out.ambiguities]
         ambiguities, amb_map = merge_ambiguities_with_map(rule_ambiguities, llm_amb)
 
         # The model's AMB-n references (placeholders, assumption reasons) must point at the FINAL ids.
         def remap_refs(text: str) -> str:
+            """Rewrite the model's AMB-n references to the final ambiguity IDs."""
             # a reference to an ambiguity the model never defined is marked unknown, not left
             # pointing at whatever ambiguity happens to get that number after renumbering
             return re.sub(r"\bAMB-\d+\b", lambda m: amb_map.get(m.group(0), "AMB-?"), text)

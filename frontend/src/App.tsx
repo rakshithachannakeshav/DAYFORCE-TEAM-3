@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/layout/Navbar";
@@ -11,6 +10,7 @@ import { GenerationProvider } from "./context/GenerationProvider";
 import "./styles/variables.css";
 import "./styles/global.css";
 
+// Root layout: shared generation state, the navigation, and one route per page.
 function App() {
   return (
     <BrowserRouter>

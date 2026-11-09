@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { GenerationContext } from "../context/GenerationContext";
 
+// Reads the shared generation state. Fails loudly if the provider is missing.
 export function useGeneration() {
   const context = useContext(GenerationContext);
 

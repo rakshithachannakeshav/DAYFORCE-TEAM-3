@@ -1,10 +1,10 @@
-
 import type { TestScenario } from "../../types";
 
 interface Props {
   scenarios: TestScenario[];
 }
 
+// Lists every generated test scenario with its type and values.
 function TestScenarios({ scenarios }: Props) {
   return (
     <section className="result-card">

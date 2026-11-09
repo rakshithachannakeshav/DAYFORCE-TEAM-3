@@ -1,6 +1,7 @@
+"""FastAPI application: baseline generation, run history, and the mounted LLM pipeline routes."""
+
 import json
 import sys
-from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -28,21 +29,13 @@ SAMPLE_REQUIREMENTS_PATH = (
 )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Ensure database tables exist at application startup
-    init_db()
-    yield
-
-
-# Ensure database tables exist at import/startup
+# Create the database tables on import, so they also exist for tests that do not start the app.
 init_db()
 
 app = FastAPI(
     title="Requirements-to-Test Assistant API",
     description="API for converting product requirements into acceptance criteria, scenarios, edge cases, and traceability matrices.",
     version="0.1.0",
-    lifespan=lifespan,
 )
 
 # Allow React frontend (running locally on Vite or standard React ports) to connect

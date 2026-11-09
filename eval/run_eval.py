@@ -61,6 +61,7 @@ CSV_COLUMNS = [
 
 
 def load_json(path: Path) -> Any:
+    """Read a UTF-8 JSON file."""
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -68,6 +69,7 @@ def load_json(path: Path) -> Any:
 # Running the two pipelines
 # --------------------------------------------------------------------------- #
 def run_baseline(raw: dict[str, Any], checklist: dict[str, Any]) -> RequirementScore:
+    """Generate and score one requirement with the baseline."""
     started = time.perf_counter()
     try:
         result = generate_baseline_test_suite(Requirement.model_validate(raw))
@@ -91,12 +93,14 @@ class RecordingClient:
         self.calls = 0
 
     async def chat(self, messages, *, json_schema=None):
+        """Forward the request and keep the raw response."""
         self.calls += 1
         response = await self.inner.chat(messages, json_schema=json_schema)
         self.responses.append(response.content)
         return response
 
     async def health(self):
+        """Forward the health check."""
         return await self.inner.health()
 
 
@@ -112,6 +116,7 @@ def is_schema_valid(raw_response: str | None) -> bool:
 
 
 def run_llm(raw: dict[str, Any], pipeline: GenerationPipeline, checklist: dict[str, Any]) -> RequirementScore:
+    """Generate and score one requirement with the LLM. A failure is scored, not raised."""
     inner = pipeline.client
     recorder = RecordingClient(inner)
     pipeline.client = recorder
@@ -133,6 +138,7 @@ def run_llm(raw: dict[str, Any], pipeline: GenerationPipeline, checklist: dict[s
 
 
 def build_llm_pipeline() -> GenerationPipeline:
+    """Create the pipeline using the settings from the environment."""
     return GenerationPipeline()
 
 
@@ -150,6 +156,7 @@ def llm_unavailable_reason(pipeline: GenerationPipeline) -> str | None:
 # Outputs
 # --------------------------------------------------------------------------- #
 def score_row(score: RequirementScore) -> dict[str, Any]:
+    """Flatten a score to one CSV row."""
     row = {name: getattr(score, name, None) for name in CSV_COLUMNS}
     row["orphan_criteria"] = len(score.orphan_criteria)
     row["orphan_scenarios"] = len(score.orphan_scenarios)
@@ -161,6 +168,7 @@ def score_row(score: RequirementScore) -> dict[str, Any]:
 
 def build_summary(scores: dict[str, list[RequirementScore]], *, model: str | None,
                   llm_skipped_reason: str | None) -> dict[str, Any]:
+    """Build the summary.json content: aggregates, worst requirements and per-requirement detail."""
     summary: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "pipelines": list(scores),
@@ -182,6 +190,7 @@ def build_summary(scores: dict[str, list[RequirementScore]], *, model: str | Non
 
 
 def write_csv(path: Path, scores: dict[str, list[RequirementScore]]) -> None:
+    """Write one row per pipeline and requirement."""
     with path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=CSV_COLUMNS)
         writer.writeheader()
@@ -190,15 +199,18 @@ def write_csv(path: Path, scores: dict[str, list[RequirementScore]]) -> None:
 
 
 def _fmt(value: Any, suffix: str = "") -> str:
+    """Format a value for the report, showing None as n/a."""
     return "n/a" if value is None else f"{value}{suffix}"
 
 
 def _report_rows(agg: dict[str, Any]) -> list[tuple[str, str]]:
+    """Build the label and value of each row in the comparison table."""
     flag, any_raised = agg["ambiguity_flag"], agg["ambiguity_any_raised"]
     mix = agg["scenario_type_mix"]
     latency = agg["latency_ms"]
 
     def ambiguity(a: dict[str, Any]) -> str:
+        """Format precision, recall, F1 and the outcome counts."""
         return (f"P {_fmt(a['precision'])} / R {_fmt(a['recall'])} / F1 {_fmt(a['f1'])} "
                 f"(TP {a['TP']}, FP {a['FP']}, FN {a['FN']}, TN {a['TN']})")
 
@@ -222,6 +234,7 @@ def _report_rows(agg: dict[str, Any]) -> list[tuple[str, str]]:
 
 
 def build_report(summary: dict[str, Any]) -> str:
+    """Render REPORT.md from the summary."""
     aggregates = summary["aggregate"]
     lines = ["# Evaluation report", "",
              f"Generated {summary['generated_at']}. Metric definitions are in docs/EVALUATION.md.", ""]
@@ -261,6 +274,7 @@ def build_report(summary: dict[str, Any]) -> str:
 
 def write_outputs(out_dir: Path, scores: dict[str, list[RequirementScore]], *, model: str | None,
                   llm_skipped_reason: str | None) -> None:
+    """Write the JSON summary, the CSV and the report."""
     out_dir.mkdir(parents=True, exist_ok=True)
     summary = build_summary(scores, model=model, llm_skipped_reason=llm_skipped_reason)
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
@@ -272,6 +286,7 @@ def write_outputs(out_dir: Path, scores: dict[str, list[RequirementScore]], *, m
 # CLI
 # --------------------------------------------------------------------------- #
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
+    """Parse the command-line options."""
     parser = argparse.ArgumentParser(description="Evaluate the baseline and the LLM pipeline on the dataset.")
     which = parser.add_mutually_exclusive_group()
     which.add_argument("--baseline-only", action="store_true", help="Run only the rule-based baseline (no Ollama needed)")
@@ -282,6 +297,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the evaluation. Returns the process exit code."""
     args = parse_args(argv)
     dataset = load_json(DATASET_PATH)
     checklist = load_json(CHECKLIST_PATH)

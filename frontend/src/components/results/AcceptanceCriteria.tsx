@@ -1,10 +1,10 @@
-
 import type { AcceptanceCriterion } from "../../types";
 
 interface Props {
   criteria: AcceptanceCriterion[];
 }
 
+// Lists the acceptance criteria generated for the requirement.
 function AcceptanceCriteria({ criteria }: Props) {
   return (
     <section className="result-card">

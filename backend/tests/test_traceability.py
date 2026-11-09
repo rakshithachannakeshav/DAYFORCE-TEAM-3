@@ -1,3 +1,4 @@
+"""Tests for the baseline traceability matrix and coverage summary."""
 import pytest
 from schemas import AcceptanceCriterion, Requirement, Scenario
 from traceability import build_traceability_matrix, calculate_coverage_summary

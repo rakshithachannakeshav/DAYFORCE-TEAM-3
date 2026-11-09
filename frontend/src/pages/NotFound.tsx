@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+// Shown for any unknown URL.
 function NotFound() {
   return (
     <div className="dashboard">

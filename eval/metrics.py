@@ -36,6 +36,7 @@ def pct(part: float, whole: float) -> float | None:
 # Ambiguity detection
 # --------------------------------------------------------------------------- #
 def ambiguity_outcome(label: bool, predicted: bool) -> str:
+    """Classify one prediction against its label as TP, FP, FN or TN."""
     if label:
         return "TP" if predicted else "FN"
     return "FP" if predicted else "TN"
@@ -54,6 +55,7 @@ def precision_recall_f1(tp: int, fp: int, fn: int) -> dict[str, float | None]:
 
 
 def ambiguity_summary(outcomes: list[str]) -> dict[str, Any]:
+    """Count the outcomes and add precision, recall and F1."""
     counts = {k: outcomes.count(k) for k in ("TP", "FP", "FN", "TN")}
     return {**counts, **precision_recall_f1(counts["TP"], counts["FP"], counts["FN"])}
 
@@ -90,6 +92,7 @@ def limit_values(limit: Limit) -> list[int]:
 
 
 def _mentions_number(text: str, number: int) -> bool:
+    """True if the number appears on its own, not inside a decimal or a reference."""
     # not part of a decimal ("1.5") or a reference ("rule #1")
     return re.search(rf"(?<![\d.#]){number}(?!\d|\.\d)", text) is not None
 
@@ -104,6 +107,7 @@ def text_boundary_coverage(limits: list[Limit], texts: list[str]) -> tuple[int, 
 
 
 def llm_boundary_coverage(coverage: Any) -> tuple[int, int, list[str]]:
+    """Read covered limits, total limits and missed limits from the pipeline's coverage."""
     missed = [b.limit for b in coverage.boundary_coverage if not b.covered]
     total = len(coverage.boundary_coverage)
     return total - len(missed), total, missed
@@ -114,6 +118,7 @@ def llm_boundary_coverage(coverage: Any) -> tuple[int, int, list[str]]:
 # --------------------------------------------------------------------------- #
 @dataclass
 class TraceabilityCheck:
+    """Links missing in either direction between criteria and scenarios."""
     orphan_criteria: list[str]
     orphan_scenarios: list[str]
     rows_total: int
@@ -121,6 +126,7 @@ class TraceabilityCheck:
 
     @property
     def complete(self) -> bool:
+        """True when nothing is orphaned and every traceability row is covered."""
         return not self.orphan_criteria and not self.orphan_scenarios and self.rows_covered == self.rows_total
 
 
@@ -141,6 +147,7 @@ def check_traceability(criterion_ids: list[str], scenario_links: dict[str, list[
 # Edge-case checklist
 # --------------------------------------------------------------------------- #
 def requirement_text(raw: dict[str, Any]) -> str:
+    """Join the requirement's title, description and rules."""
     return "\n".join([raw.get("title") or "", raw["description"], *raw.get("rules", [])])
 
 
@@ -152,6 +159,7 @@ def requirement_echoes(raw: dict[str, Any]) -> list[str]:
 
 
 def strip_echoes(text: str, echoes: list[str]) -> str:
+    """Remove copied text, so repeating the requirement earns no checklist credit."""
     for echo in echoes:
         text = re.sub(re.escape(echo), " ", text, flags=re.IGNORECASE)
     return text
@@ -186,6 +194,7 @@ def score_checklist(checklist: dict[str, Any], raw: dict[str, Any], generated: l
 # --------------------------------------------------------------------------- #
 @dataclass
 class RequirementScore:
+    """Every metric for one requirement on one pipeline."""
     pipeline: str
     requirement_id: str
     title: str
@@ -221,22 +230,27 @@ class RequirementScore:
 
     @property
     def rule_coverage_pct(self) -> float | None:
+        """Rule coverage percentage, or None if there are no rules."""
         return pct(self.rules_covered, self.rules_total)
 
     @property
     def boundary_coverage_pct(self) -> float | None:
+        """Boundary coverage percentage, or None if there are no limits."""
         return pct(self.limits_covered, self.limits_total)
 
     @property
     def checklist_score_pct(self) -> float | None:
+        """Checklist percentage, or None if no item applies."""
         return pct(self.checklist_matched, self.checklist_applicable)
 
     @property
     def ambiguity_outcome(self) -> str:
+        """Outcome under the clarification flag definition."""
         return ambiguity_outcome(self.intentionally_ambiguous, self.ambiguity_flagged)
 
     @property
     def ambiguity_any_outcome(self) -> str:
+        """Outcome when raising any question counts as a prediction."""
         return ambiguity_outcome(self.intentionally_ambiguous, self.ambiguity_any_raised)
 
     @property
@@ -250,11 +264,13 @@ class RequirementScore:
 
 
 def _identity(raw: dict[str, Any]) -> dict[str, Any]:
+    """Fields that identify a requirement on every score."""
     return {"requirement_id": raw["id"], "title": raw.get("title") or "",
             "intentionally_ambiguous": bool(raw["intentionally_ambiguous"])}
 
 
 def baseline_generated_texts(result: Any) -> list[str]:
+    """Collect the baseline's generated text for pattern matching."""
     texts = [e.description for e in result.edge_cases]
     for s in result.scenarios:
         texts += [s.title, *s.steps, s.expected_result]
@@ -262,6 +278,7 @@ def baseline_generated_texts(result: Any) -> list[str]:
 
 
 def llm_generated_texts(result: Any) -> list[str]:
+    """Collect the LLM's generated text for pattern matching."""
     texts = [f"{e.description} {e.expected_result}" for e in result.edge_cases]
     for s in result.test_scenarios:
         texts += [s.title, *s.test_steps, *s.test_data, s.expected_result]
@@ -270,6 +287,7 @@ def llm_generated_texts(result: Any) -> list[str]:
 
 def score_baseline(raw: dict[str, Any], result: Any, latency_ms: float, checklist: dict[str, Any],
                    schema_valid: bool) -> RequirementScore:
+    """Score one baseline result."""
     rules = raw.get("rules", [])
     rules_covered, rules_total, uncovered_rules = baseline_rule_coverage(result.traceability, rules)
     texts = baseline_generated_texts(result)
@@ -300,6 +318,7 @@ def score_baseline(raw: dict[str, Any], result: Any, latency_ms: float, checklis
 
 def score_llm(raw: dict[str, Any], result: Any, latency_ms: float, checklist: dict[str, Any],
               schema_valid_first_try: bool) -> RequirementScore:
+    """Score one LLM result."""
     c = result.coverage
     rules_covered, rules_total, uncovered_rules = llm_rule_coverage(c, result.traceability)
     limits_covered, limits_total, uncovered_limits = llm_boundary_coverage(c)
@@ -347,6 +366,7 @@ def score_failure(pipeline: str, raw: dict[str, Any], error: str, latency_ms: fl
 # Aggregates and the worst requirements
 # --------------------------------------------------------------------------- #
 def _mean(values: list[float | None]) -> float | None:
+    """Average the known values, or return None if there are none."""
     known = [v for v in values if v is not None]
     return round(sum(known) / len(known), 1) if known else None
 
@@ -420,6 +440,7 @@ def explain(score: RequirementScore) -> list[str]:
 
 
 def worst_requirements(scores: list[RequirementScore], count: int = 3) -> list[dict[str, Any]]:
+    """Return the lowest-scoring requirements with the reasons for each."""
     ranked = sorted(scores, key=lambda s: (s.quality_score, s.requirement_id))[:count]
     return [{"requirement_id": s.requirement_id, "title": s.title, "quality_score": s.quality_score,
              "reasons": explain(s)} for s in ranked]

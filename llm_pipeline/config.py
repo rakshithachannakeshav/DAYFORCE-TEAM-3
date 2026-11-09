@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 
 def _env_int(name: str, default: int) -> int:
+    """Read an integer environment variable, using the default if it is missing or invalid."""
     try:
         return int(os.getenv(name, default))
     except (TypeError, ValueError):
@@ -21,6 +22,7 @@ def _env_int(name: str, default: int) -> int:
 
 
 def _env_float(name: str, default: float) -> float:
+    """Read a float environment variable, using the default if it is missing or invalid."""
     try:
         return float(os.getenv(name, default))
     except (TypeError, ValueError):
@@ -28,6 +30,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 def _env_bool(name: str, default: bool) -> bool:
+    """Read a boolean environment variable. Only 1, true, yes and on count as true."""
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -36,6 +39,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 @dataclass(frozen=True)
 class LLMSettings:
+    """Pipeline settings. Each one can be overridden by an environment variable."""
     # Ollama server + model
     ollama_host: str = field(default_factory=lambda: os.getenv("OLLAMA_HOST_URL", "http://localhost:11434"))
     # qwen2.5:3b (~1.9 GB) is small enough for an 8 GB M1 MacBook Air and is
@@ -65,8 +69,10 @@ class LLMSettings:
 
     @property
     def max_attempts(self) -> int:
+        """Total generation attempts: the first try plus the retries, and at least one."""
         return max(1, self.max_retries + 1)
 
 
 def get_settings() -> LLMSettings:
+    """Build the settings from the current environment."""
     return LLMSettings()

@@ -1,3 +1,4 @@
+"""Tests for the baseline API routes."""
 from fastapi.testclient import TestClient
 from main import app
 from schemas import GenerationResult, Requirement

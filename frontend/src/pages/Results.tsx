@@ -5,6 +5,7 @@ import { Download, FileJson, FileSpreadsheet } from "lucide-react";
 import { useGeneration } from "../hooks/useGeneration";
 import { exportCSV, exportJSON } from "../utils/export";
 
+// Shows the generated criteria, scenarios and clarifications, with CSV and JSON export.
 function Results() {
   const { requirement, results } = useGeneration();
 

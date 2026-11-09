@@ -118,6 +118,7 @@ Your job: an existing test suite has specific coverage gaps. Complete ONLY the n
 
 
 def build_user_prompt(req: RequirementInput, rule_ambiguities: list[Ambiguity], ctx: "Context") -> str:
+    """Build the main prompt: the requirement, its fixed criteria, and the static findings."""
     lines = [f"Requirement ID: {req.requirement_id}"]
     if req.title:
         lines.append(f"Title: {req.title}")

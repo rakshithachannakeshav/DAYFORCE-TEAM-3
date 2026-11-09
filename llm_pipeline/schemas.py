@@ -83,6 +83,7 @@ def _as_list(value: Any) -> Any:
 
 
 class _Lenient(BaseModel):
+    """Base for models the LLM fills in: tolerates extra keys and stray whitespace."""
     # Ignore unknown keys the model may add rather than failing the request.
     model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
 
@@ -117,11 +118,13 @@ class RequirementInput(_Lenient):
     @field_validator("priority", mode="before")
     @classmethod
     def _p(cls, v: Any) -> Any:
+        """Normalise the priority text before validation."""
         return _norm_enum(v)
 
     @field_validator("business_rules", mode="before")
     @classmethod
     def _br(cls, v: Any) -> Any:
+        """Coerce the business rules to a list before validation."""
         return _as_list(v)
 
     def full_text(self) -> str:
@@ -136,6 +139,7 @@ class RequirementInput(_Lenient):
 
 
 class Ambiguity(_Lenient):
+    """An unclear part of a requirement and the question that would resolve it."""
     id: str = Field(..., description="AMB-1, AMB-2, ...")
     text: str = Field(..., description="The exact phrase from the requirement that is unclear (or 'N/A' if missing info).")
     issue: str = Field(..., description="Why it is ambiguous or what is missing.")
@@ -146,16 +150,19 @@ class Ambiguity(_Lenient):
     @field_validator("severity", mode="before")
     @classmethod
     def _s(cls, v: Any) -> Any:
+        """Normalise the severity text before validation."""
         return _norm_enum(v)
 
 
 class Assumption(_Lenient):
+    """Something taken as true to fill a gap in the requirement."""
     id: str = Field(..., description="ASM-1, ASM-2, ...")
     statement: str
     reason: str = Field(..., description="Which ambiguity / gap this assumption fills.")
 
 
 class AcceptanceCriterion(_Lenient):
+    """One measurable criterion in Given/When/Then form."""
     id: str = Field(..., description="AC-1, AC-2, ...")
     description: str = Field(..., description="One measurable, testable statement.")
     given: str
@@ -169,6 +176,7 @@ class AcceptanceCriterion(_Lenient):
     @field_validator("source", mode="before")
     @classmethod
     def _src(cls, v: Any) -> Any:
+        """Normalise the source text, mapping common synonyms to explicit or assumption."""
         v = _norm_enum(v)
         if isinstance(v, str) and v.startswith("assum"):
             return "assumption"
@@ -179,10 +187,12 @@ class AcceptanceCriterion(_Lenient):
     @field_validator("assumption_ids", mode="before")
     @classmethod
     def _aids(cls, v: Any) -> Any:
+        """Coerce the assumption IDs to a list before validation."""
         return _as_list(v)
 
 
 class AutomationRecommendation(_Lenient):
+    """How a test could be automated, and with which tool."""
     automatable: bool = True
     level: AutomationLevel = Field("api", description="Lowest test level that can verify this scenario.")
     suggested_tool: str = Field("pytest", description="e.g. pytest, Playwright, Postman/Newman, JUnit.")
@@ -191,10 +201,12 @@ class AutomationRecommendation(_Lenient):
     @field_validator("level", mode="before")
     @classmethod
     def _lvl(cls, v: Any) -> Any:
+        """Normalise the automation level, including known aliases."""
         return _norm_enum(v, _LEVEL_ALIASES)
 
 
 class TestScenario(_Lenient):
+    """One test case linked to an acceptance criterion."""
     __test__ = False  # stop pytest from trying to collect this class
 
     test_case_id: str = Field(..., description="TC-001, TC-002, ...")
@@ -212,16 +224,19 @@ class TestScenario(_Lenient):
     @field_validator("test_type", mode="before")
     @classmethod
     def _tt(cls, v: Any) -> Any:
+        """Normalise the test type, including known aliases."""
         return _norm_enum(v, _TEST_TYPE_ALIASES)
 
     @field_validator("priority", mode="before")
     @classmethod
     def _pr(cls, v: Any) -> Any:
+        """Normalise the priority text before validation."""
         return _norm_enum(v)
 
     @field_validator("preconditions", "test_steps", "test_data", mode="before")
     @classmethod
     def _lists(cls, v: Any) -> Any:
+        """Coerce the list fields to lists before validation."""
         return _as_list(v)
 
 
@@ -247,6 +262,7 @@ class NotApplicable(_Lenient):
     @field_validator("test_type", mode="before")
     @classmethod
     def _tt(cls, v: Any) -> Any:
+        """Normalise the test type, including known aliases."""
         return _norm_enum(v, _TEST_TYPE_ALIASES)
 
 
@@ -279,6 +295,7 @@ CriterionStatus = Literal["validated", "partial", "untested", "needs_clarificati
 
 
 class TraceabilityLink(BaseModel):
+    """One row of the traceability matrix: a criterion, its tests and its status."""
     requirement_id: str
     acceptance_criterion_id: str
     acceptance_criterion: str
@@ -298,12 +315,14 @@ class TraceabilityLink(BaseModel):
 
 
 class RuleCoverage(BaseModel):
+    """Coverage status of one business rule."""
     rule: str
     acceptance_criterion_ids: list[str]
     status: CriterionStatus | Literal["missing"]
 
 
 class BoundaryCoverage(BaseModel):
+    """Whether one numeric limit has a boundary test."""
     limit: str
     acceptance_criterion_id: str | None
     test_case_ids: list[str]
@@ -311,6 +330,7 @@ class BoundaryCoverage(BaseModel):
 
 
 class CoverageSummary(BaseModel):
+    """Generated and validated coverage for a whole requirement, with remaining gaps."""
     total_acceptance_criteria: int
     covered_acceptance_criteria: int
     coverage_percent: float = Field(
@@ -331,6 +351,7 @@ class CoverageSummary(BaseModel):
 
 
 class AutomationSummary(BaseModel):
+    """Totals and advice across all automation recommendations."""
     automatable_count: int
     manual_count: int
     by_level: dict[str, int]
@@ -339,6 +360,7 @@ class AutomationSummary(BaseModel):
 
 
 class GenerationMetadata(BaseModel):
+    """How the result was produced: model, prompt version, calls, duration and warnings."""
     model: str
     prompt_version: str
     attempts: int
@@ -347,6 +369,7 @@ class GenerationMetadata(BaseModel):
 
 
 class GenerationResult(BaseModel):
+    """The final response of POST /api/llm/generate."""
     requirement_id: str
     title: str | None = None
     original_requirement: str
@@ -364,6 +387,7 @@ class GenerationResult(BaseModel):
 
 
 class ErrorResponse(BaseModel):
+    """The JSON body of every pipeline error."""
     error: str
     message: str
     details: list[str] = Field(default_factory=list)

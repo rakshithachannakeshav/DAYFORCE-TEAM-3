@@ -41,7 +41,7 @@ export interface BackendCriterion {
   assumption_ids: string[];
 }
 
-export interface BackendAutomation {
+interface BackendAutomation {
   automatable: boolean;
   level: string;
   suggested_tool: string;
