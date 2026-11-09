@@ -16,7 +16,7 @@ import csv
 import json
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -162,7 +162,7 @@ def score_row(score: RequirementScore) -> dict[str, Any]:
 def build_summary(scores: dict[str, list[RequirementScore]], *, model: str | None,
                   llm_skipped_reason: str | None) -> dict[str, Any]:
     summary: dict[str, Any] = {
-        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "pipelines": list(scores),
         "llm_model": model,
         "llm_skipped_reason": llm_skipped_reason,
