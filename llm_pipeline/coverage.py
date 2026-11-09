@@ -27,7 +27,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 
-from .ambiguity import VAGUE_TERMS, Limit, blocking_terms, extract_boundaries, parse_limits
+from .ambiguity import Limit, blocking_terms, extract_boundaries, parse_limits
 from .schemas import (
     AcceptanceCriterion,
     Assumption,
@@ -50,6 +50,7 @@ _ID_RE = re.compile(r"\b(?:AC|TC|AMB|ASM|REQ|EC)[-_ ]?[A-Za-z0-9]*\d+\b", re.IGN
 
 
 def norm_text(s: str) -> str:
+    """Lowercase the text and keep only letters and digits, for loose comparison."""
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
@@ -70,6 +71,7 @@ def content_words(s: str) -> set[str]:
 
 
 def _fmt(x: float) -> str:
+    """Format a number without a trailing .0."""
     return str(int(x)) if float(x).is_integer() else f"{x:g}"
 
 
@@ -90,6 +92,7 @@ def derived_numbers(inputs: set[str], stated: set[str]) -> set[str]:
 
 
 def jaccard(a: set[str], b: set[str]) -> float:
+    """Return the overlap of two sets from 0 to 1. Two empty sets score 0."""
     return len(a & b) / len(a | b) if a | b else 0.0
 
 
@@ -100,12 +103,9 @@ def canon_id(id_: str) -> str:
 
 
 def id_number(id_: str) -> int:
+    """Return the number at the end of an ID such as TC-007, or 0 if there is none."""
     m = re.search(r"(\d+)\s*$", id_ or "")
     return int(m.group(1)) if m else 0
-
-
-def vague_terms_in(text: str) -> list[str]:
-    return sorted(t for t in VAGUE_TERMS if re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", text, re.IGNORECASE))
 
 
 _PLACEHOLDER_RE = re.compile(
@@ -124,6 +124,7 @@ _TEMPLATE_ECHOES = {
 
 
 def is_template_echo(*texts: str) -> bool:
+    """True if any text is copied from the example shape shown in the prompt."""
     return any(norm_text(t) in _TEMPLATE_ECHOES for t in texts if t is not None)
 
 
@@ -218,6 +219,7 @@ def split_rule_clauses(rule: str) -> list[str]:
 
 
 def seed_criteria(rules: list[str]) -> list[Seed]:
+    """Create one fixed acceptance criterion per rule clause, numbered AC-1 onwards."""
     seeds: list[Seed] = []
     for rule in rules:
         for clause in split_rule_clauses(rule):
@@ -241,6 +243,7 @@ class Context:
 
     @classmethod
     def from_requirement(cls, req: RequirementInput) -> "Context":
+        """Analyse a requirement: seed criteria, parse limits, and collect the numbers it allows."""
         text = req.full_text()
         limits = parse_limits(req)
         covered_nums = set().union(*(lim.numbers for lim in limits)) if limits else set()
@@ -264,6 +267,7 @@ class Context:
 
     @property
     def seed_ids(self) -> set[str]:
+        """IDs of the criteria seeded from business rules."""
         return {s.id for s in self.seeds}
 
 
@@ -374,6 +378,7 @@ def align_criteria(out: LLMOutput, ctx: Context, notes: list[str]) -> None:
 
 
 def _add_assumption(out: LLMOutput, statement: str, reason: str) -> str:
+    """Append an assumption with the next free ASM number and return its ID."""
     n = max((id_number(a.id) for a in out.assumptions), default=0) + 1
     asm = Assumption(id=f"ASM-{n}", statement=statement, reason=reason)
     out.assumptions.append(asm)
@@ -445,11 +450,13 @@ class Task:
 
     @property
     def key(self) -> tuple[str, str, str]:
+        """Identity of the task, used to count how often it has been requested."""
         return (self.kind, self.ac_id, self.detail)
 
 
 @dataclass
 class Assessment:
+    """What the coverage check found for one acceptance criterion."""
     ac_id: str
     tests: list[str] = field(default_factory=list)
     types: list[str] = field(default_factory=list)
@@ -466,6 +473,7 @@ class Assessment:
 
 @dataclass
 class BoundaryStatus:
+    """Whether one numeric limit has a boundary test."""
     limit: str
     ac_id: str | None
     tests: list[str]
@@ -474,6 +482,7 @@ class BoundaryStatus:
 
 @dataclass
 class CheckReport:
+    """Everything one coverage check found, including the tasks still open."""
     errors: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     tasks: list[Task] = field(default_factory=list)
@@ -485,10 +494,12 @@ class CheckReport:
 
     @property
     def gaps(self) -> list[str]:
+        """Every remaining gap: open tasks and gaps a test cannot fix."""
         return [t.summary or t.text for t in self.tasks] + self.other_gaps
 
 
 def _limit_ac(out: LLMOutput, nums: set[str], source: str) -> AcceptanceCriterion | None:
+    """Pick the criterion that carries the limit's numbers and is worded closest to its source."""
     cands = [a for a in out.acceptance_criteria if nums and nums <= numbers(f"{a.description} {a.then}")]
     if not cands:
         return None
@@ -531,6 +542,7 @@ def add_boundary_tests(out: LLMOutput, ctx: Context, notes: list[str]) -> None:
 
 
 def _sig(tc: TestScenario) -> str:
+    """Normalised steps and test data, to compare tests by what they do and not by title."""
     return norm_text(" ".join(tc.test_steps) + "|" + " ".join(tc.test_data))
 
 

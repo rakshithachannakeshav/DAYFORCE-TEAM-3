@@ -21,21 +21,25 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ChatMessage:
+    """One message in a chat request."""
     role: str  # "system" | "user" | "assistant"
     content: str
 
     def to_dict(self) -> dict[str, str]:
+        """Return the message in the format Ollama expects."""
         return {"role": self.role, "content": self.content}
 
 
 @dataclass
 class LLMResponse:
+    """The text returned by the model, and whether it was cut off."""
     content: str
     truncated: bool = False  # True if generation stopped because it hit the token limit
     raw: dict[str, Any] | None = None
 
 
 class LLMClient(Protocol):
+    """What the pipeline needs from a model client. Tests pass a fake that follows this shape."""
     model: str
 
     async def chat(self, messages: list[ChatMessage], *, json_schema: dict[str, Any] | None = None) -> LLMResponse: ...
@@ -52,6 +56,7 @@ def inline_json_schema_refs(schema: dict[str, Any]) -> dict[str, Any]:
     defs = schema.get("$defs", {})
 
     def resolve(node: Any) -> Any:
+        """Recursively replace each $ref with the definition it points to."""
         if isinstance(node, dict):
             if "$ref" in node:
                 name = node["$ref"].split("/")[-1]
@@ -73,9 +78,11 @@ class OllamaClient:
         self._transport = transport  # lets tests inject httpx.MockTransport
 
     def _client(self, timeout: float) -> httpx.AsyncClient:
+        """Create an HTTP client for the Ollama server with the given timeout."""
         return httpx.AsyncClient(base_url=self.settings.ollama_host, timeout=timeout, transport=self._transport)
 
     async def chat(self, messages: list[ChatMessage], *, json_schema: dict[str, Any] | None = None) -> LLMResponse:
+        """Send one non-streaming chat request and return the model's reply."""
         s = self.settings
         payload: dict[str, Any] = {
             "model": s.model,

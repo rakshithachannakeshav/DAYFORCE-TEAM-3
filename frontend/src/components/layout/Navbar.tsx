@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 
+// Top bar with the product name.
 function Navbar() {
   return (
     <header className="navbar">

@@ -20,6 +20,7 @@ from .schemas import Ambiguity, RequirementInput
 
 @dataclass(frozen=True)
 class _Rule:
+    """One static ambiguity check: a regex and the finding it produces."""
     pattern: str
     issue: str
     question: str
@@ -84,7 +85,7 @@ _VAGUE_TERMS: dict[str, tuple[str, str]] = {
     "acceptable": ("medium", "What value is 'acceptable'?"),
 }
 
-VAGUE_TERMS = frozenset(_VAGUE_TERMS)  # public: used by the coverage checker for measurability
+VAGUE_TERMS = frozenset(_VAGUE_TERMS)  # the terms alone, for membership searches
 
 
 def blocking_terms(text: str) -> list[str]:
@@ -131,6 +132,7 @@ _NUMBER = re.compile(r"\d")
 
 
 def _excerpt(text: str, start: int, end: int, pad: int = 30) -> str:
+    """Return the matched text with a little surrounding context."""
     s, e = max(0, start - pad), min(len(text), end + pad)
     snippet = text[s:e].replace("\n", " ").strip()
     return ("..." if s > 0 else "") + snippet + ("..." if e < len(text) else "")
@@ -143,6 +145,7 @@ def detect_ambiguities(req: RequirementInput) -> list[Ambiguity]:
     seen_terms: set[str] = set()
 
     def add(term: str, issue: str, question: str, severity: str) -> None:
+        """Record a finding, once per term."""
         key = term.lower()
         if key in seen_terms:
             return
@@ -201,6 +204,7 @@ _TERM_IN_ISSUE = re.compile(r"term '([^']+)'")
 
 
 def _vague_terms_in(text: str) -> set[str]:
+    """Return the known vague terms that appear as whole words in the text."""
     return {t for t in VAGUE_TERMS if re.search(rf"(?<![\w-]){re.escape(t)}(?![\w-])", text, re.IGNORECASE)}
 
 
@@ -228,12 +232,15 @@ def merge_ambiguities_with_map(
     rule_terms = {m.group(1).lower(): i for i, a in enumerate(rule_found) if (m := _TERM_IN_ISSUE.search(a.issue))}
 
     def key(a: Ambiguity) -> str:
+        """Normalised text used to spot findings that are exact repeats."""
         return re.sub(r"[^a-z0-9]", "", (a.text + a.clarification_question).lower())[:60]
 
     def nums(a: Ambiguity) -> set[str]:
+        """Numbers a finding mentions."""
         return set(re.findall(r"\d+", f"{a.text} {a.issue}"))
 
     def words(a: Ambiguity) -> set[str]:
+        """Longer words a finding mentions, used to compare wording."""
         return {w for w in re.findall(r"[a-z]{4,}", f"{a.text} {a.issue} {a.clarification_question}".lower())}
 
     def rule_twin(a: Ambiguity) -> int | None:
@@ -298,9 +305,11 @@ class Limit:
 
     @property
     def numbers(self) -> set[str]:
+        """The limit's numbers as strings."""
         return {str(n) for n in (self.low, self.high) if n is not None}
 
     def test_values(self) -> list[str]:
+        """Return the values to test around this limit, each with its expected outcome."""
         lo, hi = self.low, self.high
         match, no_match = f"matches '{self.phrase}'", f"does not match '{self.phrase}'"
         ok, bad = ("accepted", "rejected") if self.validity else (match, no_match)  # trigger/category -> no verdict
@@ -352,6 +361,7 @@ _NEGATED_BEFORE = re.compile(r"\b(must not|cannot|can not|may not|should not|sha
 
 
 def _sentences(req: RequirementInput) -> list[str]:
+    """Split the description into sentences and add the business rules."""
     parts = re.split(r"(?<=[.!?;])\s+|\n", req.description)
     return [p.strip() for p in [*parts, *req.business_rules] if p and p.strip()]
 
@@ -378,6 +388,7 @@ def parse_limits(req: RequirementInput) -> list[Limit]:
 
     def add(kind: str, m: re.Match, low: int | None, high: int | None, unit: str | None, s: str,
             validity: bool = True) -> None:
+        """Record a limit, once per kind and value."""
         key = (kind, low, high)
         if key in seen:
             return

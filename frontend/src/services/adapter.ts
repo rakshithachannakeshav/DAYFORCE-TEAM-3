@@ -4,6 +4,7 @@ import type {
   RequirementInput,
 } from "../types";
 
+// A bullet or numbered line, capturing the text after the marker.
 const RULE_LINE = /^\s*(?:[-*•]|\d+[.)])\s+(.+)$/;
 
 // The UI collects one free-text requirement. Bullet or numbered lines become
@@ -31,6 +32,7 @@ export function buildRequirementInput(text: string): RequirementInput {
     : { description: description.join(" ") };
 }
 
+// Maps the API response to the simpler view model the pages and exports use.
 export function toGenerationResponse(
   result: BackendGenerationResult
 ): GenerationResponse {

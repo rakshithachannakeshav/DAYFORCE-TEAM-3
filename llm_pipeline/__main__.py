@@ -36,6 +36,7 @@ from .validation import validate_requirement
 
 
 def _summary_row(raw: dict[str, Any], result: GenerationResult | None, error: str | None, seconds: float) -> dict:
+    """Reduce one result, or its error, to a row for the batch summary."""
     row: dict[str, Any] = {"id": raw.get("requirement_id") or raw.get("id"), "title": raw.get("title")}
     if "intentionally_ambiguous" in raw:
         row["intentionally_ambiguous"] = raw["intentionally_ambiguous"]
@@ -61,6 +62,7 @@ def _summary_row(raw: dict[str, Any], result: GenerationResult | None, error: st
 
 
 def _print_table(rows: list[dict]) -> None:
+    """Print the batch summary as a fixed-width table."""
     print(f"\n{'id':<13} {'label':<9} {'clarify?':<9} {'valid%':>6} {'gen%':>6} {'crit':>4} {'ok/blk/asm':>10} "
           f"{'gaps':>4} {'calls':>5} {'sec':>5}")
     for r in rows:
@@ -80,6 +82,7 @@ def _print_table(rows: list[dict]) -> None:
 
 
 def _run_batch(items: list[dict], args) -> int:
+    """Run a list of requirements and save each result. Returns the process exit code."""
     if args.only:
         wanted = {x.strip() for x in args.only.split(",")}
         items = [r for r in items if (r.get("requirement_id") or r.get("id")) in wanted]
@@ -116,6 +119,7 @@ def _run_batch(items: list[dict], args) -> int:
 
 
 def main() -> int:
+    """Parse the command line and run one requirement or a batch. Returns the process exit code."""
     p = argparse.ArgumentParser(prog="python -m llm_pipeline", description="Generate tests from a requirement.")
     p.add_argument("file", nargs="?", help="JSON file with one requirement, or a JSON list of requirements")
     p.add_argument("--text", help="Plain requirement text instead of a file")

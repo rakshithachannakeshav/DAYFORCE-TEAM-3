@@ -1,10 +1,10 @@
-
 import type { EdgeCase } from "../../types";
 
 interface Props {
   edgeCases: EdgeCase[];
 }
 
+// Lists the boundary and edge-case tests.
 function EdgeCases({ edgeCases }: Props) {
   return (
     <section className="result-card">

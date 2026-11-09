@@ -1,4 +1,3 @@
-
 import type {
   CoverageView,
   CriterionStatus,
@@ -10,6 +9,7 @@ interface Props {
   coverage: CoverageView;
 }
 
+// Display text for each criterion status returned by the pipeline.
 const STATUS_LABELS: Record<CriterionStatus, string> = {
   validated: "Validated",
   partial: "Partial",

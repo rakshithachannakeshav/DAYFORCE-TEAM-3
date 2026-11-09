@@ -16,7 +16,7 @@ from llm_pipeline.config import LLMSettings
 from llm_pipeline.errors import EmptyResponseError, LLMTimeoutError, LLMUnavailableError, OutputParseError
 from llm_pipeline.llm_client import ChatMessage, OllamaClient
 from llm_pipeline.parsing import parse_llm_json
-from llm_pipeline.pipeline import LLM_OUTPUT_JSON_SCHEMA
+from llm_pipeline.pipeline import build_output_schema
 from llm_pipeline.schemas import RequirementInput
 
 
@@ -93,7 +93,7 @@ def test_ollama_client_sends_schema_and_parses_reply():
         return httpx.Response(200, json={"message": {"role": "assistant", "content": '{"x":1}'}, "done": True,
                                          "done_reason": "stop"})
 
-    resp = run(_ollama(handler).chat([ChatMessage("user", "hi")], json_schema=LLM_OUTPUT_JSON_SCHEMA))
+    resp = run(_ollama(handler).chat([ChatMessage("user", "hi")], json_schema=build_output_schema()))
     assert resp.content == '{"x":1}' and resp.truncated is False
     assert seen["model"] == "qwen2.5:3b" and seen["stream"] is False
     assert seen["format"]["type"] == "object" and "$defs" not in json.dumps(seen["format"])

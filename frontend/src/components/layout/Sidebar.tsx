@@ -5,6 +5,7 @@ import {
   GitBranch
 } from "lucide-react";
 
+// Links to the main pages.
 function Sidebar() {
   return (
     <aside className="sidebar">

@@ -54,12 +54,6 @@ class OutputParseError(LLMError):
     code = "invalid_json"
 
 
-class OutputValidationError(LLMError):
-    """The JSON parsed but violates the schema or traceability rules."""
-
-    code = "schema_validation_failed"
-
-
 class GenerationFailedError(PipelineError):
     """All attempts were exhausted without a valid result."""
 

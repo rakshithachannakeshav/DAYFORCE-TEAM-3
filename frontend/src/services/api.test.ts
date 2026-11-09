@@ -1,3 +1,4 @@
+// Tests for the API call and its error messages.
 import { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockResults } from "../data/mockResults";

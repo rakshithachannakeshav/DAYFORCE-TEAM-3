@@ -20,7 +20,7 @@ def build_traceability_matrix(
     """
     rows: list[TraceabilityRow] = []
 
-    # Map criterion ID to criterion object for quick lookups
+    # Group criterion IDs by the rule clause they cover
     criteria_by_clause: dict[int, list[str]] = {}
     for criterion in criteria:
         criteria_by_clause.setdefault(criterion.clause_ref, []).append(criterion.id)

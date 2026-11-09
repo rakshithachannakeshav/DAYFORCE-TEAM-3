@@ -9,6 +9,7 @@ const API_BASE_URL =
 // 3 supplement rounds at about 305 s each, so the browser must not give up first.
 const REQUEST_TIMEOUT_MS = 6 * 305 * 1000;
 
+// Shared HTTP client for the backend.
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -17,6 +18,7 @@ export const api = axios.create({
   timeout: REQUEST_TIMEOUT_MS,
 });
 
+// An error with a message for the user and optional detail lines.
 export class GenerationError extends Error {
   details: string[];
 
@@ -53,6 +55,7 @@ function readErrorBody(data: unknown): { message?: string; details: string[] } {
   };
 }
 
+// Turns any request failure into a message that says what to do next.
 export function toGenerationError(error: unknown): GenerationError {
   if (!axios.isAxiosError(error)) {
     return new GenerationError("Something went wrong while generating tests.");
@@ -102,6 +105,7 @@ export function toGenerationError(error: unknown): GenerationError {
   }
 }
 
+// Submits a requirement and returns the view model. In mock mode, it skips the backend.
 export const generateTests = async (
   requirement: string,
   signal?: AbortSignal

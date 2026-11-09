@@ -1,3 +1,4 @@
+// Tests for the CSV and JSON export content.
 import { describe, expect, it } from "vitest";
 import { mockResults } from "../data/mockResults";
 import { toGenerationResponse } from "../services/adapter";

@@ -1,4 +1,3 @@
-
 import type { GenerationResponse } from "../types";
 
 // Download a file in the browser
@@ -34,6 +33,7 @@ export function buildJSON(data: GenerationResponse): string {
   return JSON.stringify(data.raw, null, 2);
 }
 
+// One row per test scenario. List fields are joined with " | " to stay in one cell.
 export function buildCSV(data: GenerationResponse): string {
   const headers = [
     "Test Case ID",

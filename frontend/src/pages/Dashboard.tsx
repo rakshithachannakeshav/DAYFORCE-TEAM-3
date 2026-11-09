@@ -18,6 +18,7 @@ const MAX_LENGTH = 2000;
 const MIN_CHARS = 15;
 const MIN_WORDS = 4;
 
+// Home page: collects the requirement, submits it, and opens the results.
 function Dashboard() {
   const [requirement, setRequirement] = useState("");
   const [error, setError] = useState("");

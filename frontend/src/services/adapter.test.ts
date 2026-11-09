@@ -1,3 +1,4 @@
+// Tests for mapping UI text to the request and the response to the view model.
 import { describe, expect, it } from "vitest";
 import { mockResults } from "../data/mockResults";
 import { buildRequirementInput, toGenerationResponse } from "./adapter";

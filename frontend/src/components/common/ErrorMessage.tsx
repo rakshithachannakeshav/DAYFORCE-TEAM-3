@@ -1,9 +1,9 @@
-
 interface Props {
   message: string;
   details?: string[];
 }
 
+// Shows an error message with any detail lines from the backend.
 function ErrorMessage({ message, details = [] }: Props) {
   return (
     <div className="error-message" role="alert">

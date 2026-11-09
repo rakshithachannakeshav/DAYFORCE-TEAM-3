@@ -45,6 +45,7 @@ def get_pipeline() -> GenerationPipeline:
 
 
 def _error(exc: PipelineError) -> JSONResponse:
+    """Convert a pipeline error to its HTTP status and JSON error body."""
     status = next((code for cls, code in _STATUS.items() if isinstance(exc, cls)), 500)
     body = ErrorResponse(error=exc.code, message=exc.message, details=exc.details)
     return JSONResponse(status_code=status, content=body.model_dump())
@@ -58,6 +59,7 @@ def _error(exc: PipelineError) -> JSONResponse:
     summary="Generate acceptance criteria, test scenarios and traceability for one requirement",
 )
 async def generate(req: RequirementInput, pipeline: GenerationPipeline = Depends(get_pipeline)):
+    """Generate acceptance criteria, tests, ambiguities and traceability for one requirement."""
     try:
         return await pipeline.generate(req)
     except PipelineError as exc:
@@ -66,6 +68,7 @@ async def generate(req: RequirementInput, pipeline: GenerationPipeline = Depends
 
 @router.get("/health", summary="Check that Ollama is reachable and the model is pulled")
 async def health(pipeline: GenerationPipeline = Depends(get_pipeline)):
+    """Report whether Ollama and the model are available, and the retry and timeout settings."""
     info = await pipeline.client.health()
     info["max_attempts"] = pipeline.settings.max_attempts
     info["timeout_seconds"] = pipeline.settings.request_timeout_s

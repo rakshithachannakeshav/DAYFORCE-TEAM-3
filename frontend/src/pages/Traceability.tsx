@@ -1,8 +1,8 @@
-
 import { Link } from "react-router-dom";
 import TraceabilityMatrix from "../components/traceability/TraceabilityMatrix";
 import { useGeneration } from "../hooks/useGeneration";
 
+// Shows how acceptance criteria map to test scenarios.
 function Traceability() {
   const { results } = useGeneration();
 
