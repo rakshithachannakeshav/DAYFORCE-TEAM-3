@@ -41,7 +41,7 @@ export interface BackendCriterion {
   assumption_ids: string[];
 }
 
-interface BackendAutomation {
+export interface BackendAutomation {
   automatable: boolean;
   level: string;
   suggested_tool: string;
@@ -141,6 +141,7 @@ export interface TestScenario {
   expected_result: string;
   type: ScenarioType;
   priority: Severity;
+  automation: BackendAutomation;
 }
 
 export interface EdgeCase {
