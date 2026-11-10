@@ -4,6 +4,12 @@ Turns a product requirement into a first draft of its test plan: acceptance crit
 
 The web UI appears under the name **TestCraft AI**. A person still reviews the output: the tool gives testers a traceable draft and shows where a requirement needs a decision.
 
+## Demo video
+
+▶️ **[Watch the demo (8 min, Google Drive)](https://drive.google.com/file/d/1TBqckkQ6dBuDz6dUYggC3rUQQAac9eeu/view?usp=sharing)**
+
+The demo shows the end-to-end workflow on a clear requirement, one with numeric limits and a vague one, followed by the evaluation results.
+
 ## The problem
 
 Testers turn each requirement into test cases by hand. It is slow, and the gaps show up late: a limit nobody tested at its boundary, or a vague rule ("quick", "reasonable") that nobody questioned until a defect was found. Coverage is also hard to show, because the link between a business rule and the tests that check it usually lives in someone's head.
