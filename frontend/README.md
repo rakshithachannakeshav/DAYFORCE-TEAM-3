@@ -1,6 +1,6 @@
 # Frontend
 
-React, TypeScript and Vite UI for the Requirements-to-Test Assistant. It sends a requirement to `POST /api/llm/generate` and shows the acceptance criteria, test scenarios, ambiguities and traceability, with CSV and JSON export.
+React, TypeScript and Vite UI for the Requirements-to-Test Assistant. It sends a requirement to `POST /api/llm/generate` and shows the acceptance criteria, test scenarios with automation recommendations, ambiguities and traceability, with CSV and JSON export.
 
 Requires Node.js 20.19 or newer.
 

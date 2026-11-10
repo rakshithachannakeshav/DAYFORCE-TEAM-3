@@ -4,7 +4,8 @@ interface Props {
   scenarios: TestScenario[];
 }
 
-// Lists every generated test scenario with its type and values.
+// Lists every generated test scenario with its type, values and the
+// recommended way to automate it.
 function TestScenarios({ scenarios }: Props) {
   return (
     <section className="result-card">
@@ -22,6 +23,7 @@ function TestScenarios({ scenarios }: Props) {
                 <th>Scenario</th>
                 <th>Expected Result</th>
                 <th>Type</th>
+                <th>Automation</th>
               </tr>
             </thead>
 
@@ -47,6 +49,24 @@ function TestScenarios({ scenarios }: Props) {
                     >
                       {scenario.type.replace("_", " ")}
                     </span>
+                  </td>
+                  <td>
+                    {scenario.automation.automatable ? (
+                      <>
+                        <span className="automation-level">
+                          {scenario.automation.level}
+                        </span>
+                        {scenario.automation.suggested_tool &&
+                          ` · ${scenario.automation.suggested_tool}`}
+                      </>
+                    ) : (
+                      <span className="automation-level">manual</span>
+                    )}
+                    {scenario.automation.rationale && (
+                      <p className="automation-rationale">
+                        {scenario.automation.rationale}
+                      </p>
+                    )}
                   </td>
                 </tr>
               ))}

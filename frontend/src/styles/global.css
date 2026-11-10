@@ -483,6 +483,18 @@ a {
   font-size: 12px;
 }
 
+.automation-level {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.automation-rationale {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .assumption-tag {
   color: var(--text-secondary);
   font-style: italic;

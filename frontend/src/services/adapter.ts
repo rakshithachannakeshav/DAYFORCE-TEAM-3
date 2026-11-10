@@ -55,6 +55,7 @@ export function toGenerationResponse(
       expected_result: scenario.expected_result,
       type: scenario.test_type,
       priority: scenario.priority,
+      automation: scenario.automation,
     })),
 
     edge_cases: result.edge_cases.map((edgeCase) => ({

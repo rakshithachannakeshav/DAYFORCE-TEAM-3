@@ -52,6 +52,12 @@ describe("toGenerationResponse", () => {
       expected_result: "Each value behaves as listed in test_data",
       type: "boundary",
       priority: "high",
+      automation: {
+        automatable: true,
+        level: "api",
+        suggested_tool: "pytest",
+        rationale: "Mock data",
+      },
     });
     expect(view.test_scenarios.map((scenario) => scenario.type)).toEqual([
       "positive",

@@ -4,6 +4,23 @@ Turns a product requirement into a first draft of its test plan: acceptance crit
 
 The web UI appears under the name **TestCraft AI**. A person still reviews the output: the tool gives testers a traceable draft and shows where a requirement needs a decision.
 
+## The problem
+
+Testers turn each requirement into test cases by hand. It is slow, and the gaps show up late: a limit nobody tested at its boundary, or a vague rule ("quick", "reasonable") that nobody questioned until a defect was found. Coverage is also hard to show, because the link between a business rule and the tests that check it usually lives in someone's head.
+
+This tool gives the tester a first draft in minutes, links every test back to the rule it checks, and stops to ask when a requirement is too vague to test.
+
+## User journey
+
+1. **Enter the requirement.** A tester or product owner pastes a requirement into the input page. Each business rule goes on its own line starting with `- `, so the tool can trace tests back to it.
+2. **Generate.** The tool runs the pipeline described below. This takes a few minutes on a laptop.
+3. **Check for questions.** If the requirement is vague, a clarification banner appears, and **Ambiguities & Clarifications** names each vague phrase with a specific question. The affected criteria show **Needs Clarification** and do not count as validated.
+4. **Review the draft.** The Results page lists the acceptance criteria, test scenarios (positive, negative, boundary, edge case) with their test values, edge cases, assumptions the model made, and how each scenario could be automated.
+5. **Check coverage.** The Traceability page maps each criterion to its tests, gives it a status, and lists what is still missing.
+6. **Resolve and export.** The tester answers the open questions with the product owner, edits the requirement and generates again, then exports the reviewed draft as CSV (for a spreadsheet or test management tool) or JSON (the complete result).
+
+The tester stays responsible for the final test plan. The tool drafts tests and shows gaps, and it does not decide what is correct.
+
 ## How it works
 
 ```text
@@ -20,6 +37,24 @@ The model writes the tests, and ordinary code checks them:
 5. **Report:** return validated coverage and name any remaining gaps. A criterion blocked by a vague term is never reported as validated.
 
 A rule-based baseline is included as a comparison point, so the evaluation can show what the LLM pipeline adds.
+
+## Key technical decisions
+
+| Decision | Why |
+|---|---|
+| **A local open-weight model through Ollama** | Requirements can be confidential. Running locally keeps them on the machine and needs no API keys or paid service. |
+| **`qwen2.5:3b` as the default model** | It runs on an 8 GB laptop and follows JSON instructions well. It is slow (minutes per requirement) and weak at edge cases, as the results below show. Set `OLLAMA_MODEL` to use another model. |
+| **Code handles everything that can be decided without the model** | Finding vague wording, parsing numeric limits, creating one criterion per rule, adding boundary tests and computing coverage are all deterministic. The model writes test content, and it never decides whether coverage is complete. |
+| **Two layers of output validation** | Ollama restricts the output to a JSON schema (constrained decoding), and Pydantic then validates it. Tests that fail checks are removed with a reason, and values the requirement does not state are marked as assumptions. Temperature is 0.2 so output varies less between runs. |
+| **No retrieval or vector store** | For this use case, the requirement and its business rules *are* the trusted source. Every test must link to a criterion created from them. Retrieving other documents would bring in values the requirement does not state, which is the kind of invented detail the pipeline is built to flag. Extra domain context can be passed in the API's optional `context` field. Retrieval over an approved glossary or specification is a possible next step. |
+| **Fail clearly instead of guessing** | Each model call has a timeout, retries are capped, and gap-filling rounds are limited. If no valid output remains, the API returns an error rather than an invalid result. |
+| **Vague requirements are never reported as validated** | A criterion blocked by a vague term stays at **Needs Clarification** even when tests exist, so a person has to make the decision. |
+| **A plain Python pipeline, without LangChain** | The flow is a fixed sequence of steps, so an orchestration framework would add dependencies without adding value. |
+| **A rule-based baseline** | Comparing against a simple template generator shows what the LLM actually adds, instead of reporting LLM numbers on their own. |
+
+### Model licence
+
+`qwen2.5:3b` is released under the **Qwen Research License**, which allows **non-commercial use only** (research and evaluation). That covers this prototype. A commercial deployment would need a licence from Alibaba Cloud or a different model. For example, `qwen2.5:7b` is released under Apache 2.0. To switch, set `OLLAMA_MODEL`, pull the model, and run the evaluation again, because results will change. Run `ollama show <model> --license` to read a model's licence.
 
 ## Results
 
@@ -108,7 +143,7 @@ Set these as environment variables before `npm run dev` or `npm run build`:
 ```powershell
 pytest                     # 254 Python tests, no Ollama needed
 cd frontend
-npm test                   # 29 frontend tests
+npm test                   # 30 frontend tests
 npm run lint
 npm run build
 ```

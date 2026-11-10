@@ -44,7 +44,10 @@ export function buildCSV(data: GenerationResponse): string {
     "Test Data",
     "Expected Result",
     "Type",
-    "Priority"
+    "Priority",
+    "Automation Level",
+    "Suggested Tool",
+    "Automation Rationale"
   ];
 
   const rows = data.test_scenarios.map((scenario) => [
@@ -56,7 +59,10 @@ export function buildCSV(data: GenerationResponse): string {
     scenario.test_data.join(" | "),
     scenario.expected_result,
     scenario.type,
-    scenario.priority
+    scenario.priority,
+    scenario.automation.automatable ? scenario.automation.level : "manual",
+    scenario.automation.suggested_tool,
+    scenario.automation.rationale
   ]);
 
   return [
